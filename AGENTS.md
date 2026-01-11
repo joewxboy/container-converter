@@ -1,0 +1,334 @@
+# Agent Guidelines for Container Converter
+
+## Project Overview
+This is a TypeScript/Node.js tool that converts Dockerfiles into Open Horizon Service Definition Files (SDFs). The tool parses Dockerfiles, extracts service information, and generates valid SDF JSON files for deployment on Open Horizon edge computing platforms.
+
+## Build and Development Commands
+
+### Installation
+```bash
+npm install
+```
+
+### Development
+```bash
+npm run dev          # Start development server with hot reload
+npm run build        # Build production bundle
+npm run build:dev    # Build development bundle
+```
+
+### Testing
+```bash
+npm test                    # Run all tests
+npm run test:watch         # Run tests in watch mode
+npm run test:coverage      # Run tests with coverage report
+npm run test -- --testNamePattern="specific test name"  # Run single test
+npm run test -- --testPathPattern="test-file-name"      # Run tests in specific file
+```
+
+### Code Quality
+```bash
+npm run lint               # Run ESLint
+npm run lint:fix          # Auto-fix ESLint issues
+npm run format            # Format code with Prettier
+npm run typecheck         # Run TypeScript type checking
+npm run typecheck:watch   # Watch mode for type checking
+```
+
+### Validation
+```bash
+npm run validate          # Run full validation (lint + typecheck + test)
+hzn exchange service verify <sdf-file>  # Validate SDF with Open Horizon CLI
+```
+
+## Code Style Guidelines
+
+### TypeScript/JavaScript Conventions
+
+#### Imports and Exports
+- Use ES6 imports/exports exclusively
+- Group imports by type: external libraries, internal modules, types
+- Sort imports alphabetically within groups
+- Use absolute imports for internal modules when possible
+
+```typescript
+// Good
+import { promises as fs } from 'fs';
+import path from 'path';
+
+import { DockerfileParser } from '../parser/dockerfile-parser';
+import { SDFGenerator } from '../generator/sdf-generator';
+import type { ServiceDefinition } from '../types/sdf';
+
+// Bad - mixed styles, no grouping
+import type { ServiceDefinition } from '../types/sdf';
+import { DockerfileParser } from '../parser/dockerfile-parser';
+import path from 'path';
+import { promises as fs } from 'fs';
+```
+
+#### Naming Conventions
+- **Variables/Functions**: camelCase (`parseDockerfile`, `serviceName`)
+- **Classes/Types**: PascalCase (`DockerfileParser`, `ServiceDefinition`)
+- **Constants**: UPPER_SNAKE_CASE (`DEFAULT_VERSION`, `SUPPORTED_ARCHITECTURES`)
+- **Files**: kebab-case (`dockerfile-parser.ts`, `service-definition.ts`)
+- **Directories**: kebab-case (`src/parser/`, `src/generator/`)
+
+#### Types and Interfaces
+- Use explicit types for all function parameters and return values
+- Prefer interfaces over types for object definitions
+- Use union types for discriminated unions
+- Avoid `any` type; use `unknown` when type is truly unknown
+
+```typescript
+// Good
+interface ServiceMetadata {
+  name: string;
+  version: string;
+  architecture: 'amd64' | 'arm64' | 'arm';
+}
+
+function parseDockerfile(path: string): Promise<DockerfileAST> {
+  // implementation
+}
+
+// Bad - missing types, using any
+function parseDockerfile(path) {
+  return something as any;
+}
+```
+
+#### Error Handling
+- Use custom error classes that extend `Error`
+- Include context and recovery suggestions in error messages
+- Prefer async/await with try/catch over Promise chains
+- Validate inputs at function boundaries
+
+```typescript
+// Good
+class DockerfileParseError extends Error {
+  constructor(message: string, public readonly line?: number) {
+    super(`Dockerfile parsing failed: ${message}${line ? ` at line ${line}` : ''}`);
+    this.name = 'DockerfileParseError';
+  }
+}
+
+async function readDockerfile(path: string): Promise<string> {
+  try {
+    return await fs.readFile(path, 'utf-8');
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+      throw new DockerfileParseError(`File not found: ${path}`);
+    }
+    throw new DockerfileParseError(`Failed to read file: ${error.message}`);
+  }
+}
+```
+
+### Code Structure
+
+#### File Organization
+```
+src/
+├── cli/           # Command-line interface
+├── parser/        # Dockerfile parsing logic
+├── generator/     # SDF generation logic
+├── validator/     # SDF validation logic
+├── types/         # TypeScript type definitions
+├── utils/         # Shared utilities
+└── index.ts       # Main entry point
+
+tests/
+├── unit/          # Unit tests
+├── integration/   # Integration tests
+└── fixtures/      # Test data and examples
+```
+
+#### Class Design
+- Single Responsibility Principle: each class should have one reason to change
+- Dependency Injection for testability
+- Interface segregation for flexibility
+
+```typescript
+// Good
+interface DockerfileParser {
+  parse(content: string): Promise<DockerfileAST>;
+}
+
+interface SDFGenerator {
+  generate(ast: DockerfileAST, metadata: ServiceMetadata): ServiceDefinition;
+}
+
+class ContainerConverter {
+  constructor(
+    private parser: DockerfileParser,
+    private generator: SDFGenerator
+  ) {}
+
+  async convert(dockerfilePath: string): Promise<ServiceDefinition> {
+    const content = await fs.readFile(dockerfilePath, 'utf-8');
+    const ast = await this.parser.parse(content);
+    return this.generator.generate(ast, this.inferMetadata(ast));
+  }
+}
+```
+
+### Testing Guidelines
+
+#### Test Structure
+- Use descriptive test names that explain the behavior being tested
+- Arrange-Act-Assert (AAA) pattern
+- One assertion per test when possible
+- Use meaningful test data and fixtures
+
+```typescript
+describe('DockerfileParser', () => {
+  describe('parse', () => {
+    it('should parse FROM instruction correctly', async () => {
+      // Arrange
+      const parser = new DockerfileParser();
+      const dockerfile = 'FROM node:18-alpine\nEXPOSE 3000';
+
+      // Act
+      const result = await parser.parse(dockerfile);
+
+      // Assert
+      expect(result.baseImage).toBe('node:18-alpine');
+      expect(result.exposedPorts).toEqual([3000]);
+    });
+
+    it('should throw DockerfileParseError for invalid syntax', async () => {
+      const parser = new DockerfileParser();
+      const invalidDockerfile = 'INVALID instruction';
+
+      await expect(parser.parse(invalidDockerfile))
+        .rejects.toThrow(DockerfileParseError);
+    });
+  });
+});
+```
+
+#### Test Coverage
+- Aim for >90% code coverage
+- Cover both happy path and error scenarios
+- Test edge cases and boundary conditions
+- Use integration tests for end-to-end workflows
+
+### Documentation
+
+#### Code Comments
+- Use JSDoc for public APIs
+- Explain complex business logic
+- Document assumptions and limitations
+
+```typescript
+/**
+ * Converts a Dockerfile to an Open Horizon Service Definition File
+ * @param dockerfilePath - Path to the Dockerfile to convert
+ * @param options - Conversion options
+ * @returns Promise resolving to the generated SDF
+ * @throws {DockerfileParseError} If the Dockerfile cannot be parsed
+ * @throws {ValidationError} If the generated SDF is invalid
+ */
+export async function convertDockerfile(
+  dockerfilePath: string,
+  options: ConversionOptions = {}
+): Promise<ServiceDefinition> {
+  // Complex logic here...
+}
+```
+
+#### Commit Messages
+- Use conventional commits format
+- Include scope when relevant
+- Be descriptive but concise
+
+```
+feat(parser): add support for multi-stage Dockerfiles
+fix(generator): handle empty ENV instructions correctly
+test: add integration test for complex service conversion
+docs: update CLI usage examples
+```
+
+### Security Considerations
+
+#### Input Validation
+- Validate all file paths before reading
+- Sanitize user inputs that become part of SDFs
+- Check file sizes to prevent resource exhaustion
+
+#### Secrets Handling
+- Never log sensitive information
+- Use environment variables for credentials
+- Validate Open Horizon Exchange credentials before use
+
+```typescript
+// Good - secure credential handling
+async function authenticateExchange(credentials: ExchangeCredentials): Promise<void> {
+  // Validate credentials format
+  if (!credentials.apiKey || !credentials.url) {
+    throw new Error('Invalid exchange credentials');
+  }
+
+  // Use credentials without logging
+  try {
+    await hzn.authenticate(credentials);
+  } catch (error) {
+    throw new Error('Exchange authentication failed');
+  }
+}
+```
+
+### Performance Guidelines
+
+#### Async Operations
+- Use async/await consistently
+- Handle concurrent operations with Promise.all when independent
+- Implement proper cancellation for long-running operations
+
+#### Memory Management
+- Stream large files instead of loading entirely into memory
+- Clean up resources in finally blocks
+- Avoid memory leaks in long-running processes
+
+### Open Horizon SDF Compliance
+
+#### Required Fields
+- Always include: `label`, `description`, `url`, `version`, `arch`, `sharable`, `deployment`
+- Validate SDF structure before output
+- Use sensible defaults for optional fields
+
+#### Schema Validation
+- Validate against Open Horizon SDF schema
+- Provide clear error messages for validation failures
+- Support both JSON and YAML SDF formats if needed
+
+### Development Workflow
+
+#### Branching Strategy
+- `main`: Production-ready code
+- `develop`: Integration branch
+- `feature/*`: New features
+- `bugfix/*`: Bug fixes
+- `hotfix/*`: Critical fixes
+
+#### Pull Request Process
+- All changes require PR review
+- Run full test suite before merging
+- Update documentation for API changes
+- Ensure CI/CD passes
+
+### Tooling Preferences
+
+#### IDE Configuration
+- Use VS Code with recommended extensions
+- Configure format on save
+- Enable strict TypeScript checking
+
+#### Package Management
+- Use npm for package management
+- Keep dependencies minimal and up-to-date
+- Use `npm audit` regularly for security
+
+This document will be updated as the project evolves and new patterns emerge.</content>
+<parameter name="filePath">/Users/josephpearson/dev/container-converter/AGENTS.md

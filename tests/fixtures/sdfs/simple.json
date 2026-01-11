@@ -1,0 +1,21 @@
+{
+  "label": "Simple Node.js Service",
+  "description": "A simple Node.js application service",
+  "url": "simple-node-service",
+  "version": "1.0.0",
+  "arch": "amd64",
+  "sharable": "multiple",
+  "deployment": {
+    "services": {
+      "simple-node": {
+        "image": "node:18-alpine",
+        "ports": [
+          {
+            "HostIP": "0.0.0.0",
+            "HostPort": "3000:3000/tcp"
+          }
+        ]
+      }
+    }
+  }
+}

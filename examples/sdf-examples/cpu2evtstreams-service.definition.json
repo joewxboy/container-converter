@@ -1,0 +1,88 @@
+{
+  "org": "$HZN_ORG_ID",
+  "label": "$SERVICE_NAME for $ARCH",
+  "description": "Sample Horizon service that repeatedly reads the CPU load and GPS location, and sends it to IBM Event Streams",
+  "documentation": "https://github.com/open-horizon/examples/blob/master/edge/evtstreams/cpu2evtstreams/README.md",
+  "url": "$SERVICE_NAME",
+  "version": "$SERVICE_VERSION",
+  "arch": "$ARCH",
+  "sharable": "multiple",
+  "requiredServices": [
+    {
+      "url": "ibm.cpu",
+      "org": "IBM",
+      "versionRange": "[0.0.0,INFINITY)",
+      "arch": "$ARCH"
+    },
+    {
+      "url": "ibm.gps",
+      "org": "IBM",
+      "versionRange": "[0.0.0,INFINITY)",
+      "arch": "$ARCH"
+    }
+  ],
+  "userInput": [
+    {
+      "name": "EVTSTREAMS_API_KEY",
+      "label": "The API key to use when sending messages to your instance of IBM Event Streams",
+      "type": "string",
+      "defaultValue": ""
+    },
+    {
+      "name": "EVTSTREAMS_BROKER_URL",
+      "label": "The comma-separated list of URLs to use when sending messages to your instance of IBM Event Streams",
+      "type": "string",
+      "defaultValue": ""
+    },
+    {
+      "name": "EVTSTREAMS_CERT_ENCODED",
+      "label": "The base64-encoded self-signed certificate to use when sending messages to your ICP instance of IBM Event Streams. Not needed for IBM Cloud Event Streams.",
+      "type": "string",
+      "defaultValue": "-"
+    },
+    {
+      "name": "EVTSTREAMS_TOPIC",
+      "label": "The topic to use when sending messages to your instance of IBM Event Streams",
+      "type": "string",
+      "defaultValue": "cpu2evtstreams"
+    },
+    {
+      "name": "SAMPLE_SIZE",
+      "label": "the number of samples to read before calculating the average",
+      "type": "int",
+      "defaultValue": "5"
+    },
+    {
+      "name": "SAMPLE_INTERVAL",
+      "label": "the number of seconds between samples",
+      "type": "int",
+      "defaultValue": "2"
+    },
+    {
+      "name": "MOCK",
+      "label": "mock the CPU sampling",
+      "type": "boolean",
+      "defaultValue": "false"
+    },
+    {
+      "name": "PUBLISH",
+      "label": "publish the CPU samples to IBM Event Streams",
+      "type": "boolean",
+      "defaultValue": "true"
+    },
+    {
+      "name": "VERBOSE",
+      "label": "log everything that happens",
+      "type": "string",
+      "defaultValue": "1"
+    }
+  ],
+  "deployment": {
+    "services": {
+      "$SERVICE_NAME": {
+        "image": "${DOCKER_IMAGE_BASE}_$ARCH:$SERVICE_VERSION"
+      }
+    }
+  }
+}
+
