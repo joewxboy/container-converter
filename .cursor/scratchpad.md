@@ -258,9 +258,9 @@ Key fields in an Open Horizon Service Definition File:
 - [x] Task 1: Initialize TypeScript/Node.js Project - COMPLETED
 - [x] Task 2: Set Up Testing Framework - COMPLETED
 - [x] Task 3: Install Core Dependencies - COMPLETED
-- [ ] Task 4: Implement Dockerfile Reader
-- [ ] Task 5: Implement Dockerfile Parser
-- [ ] Task 6: Create Dockerfile Instruction Analyzer
+- [x] Task 4: Implement Dockerfile Reader - COMPLETED
+- [x] Task 5: Implement Dockerfile Parser - COMPLETED
+- [x] Task 6: Create Dockerfile Instruction Analyzer - COMPLETED
 - [ ] Task 7: Design SDF Data Model
 - [ ] Task 8: Implement Service Metadata Inference
 - [ ] Task 9: Implement Dockerfile to SDF Mapper
@@ -277,9 +277,9 @@ Key fields in an Open Horizon Service Definition File:
 
 ## Current Status / Progress Tracking
 
-**Current Phase**: Phase 1 Complete - Ready for Phase 2 (Dockerfile Parsing)
+**Current Phase**: Phase 2 Complete - Ready for Phase 3 (SDF Generation)
 
-**Last Updated**: 2026-01-11 - After completing Phase 1 setup
+**Last Updated**: 2026-01-11 - After completing Phase 2 Dockerfile parsing
 
 **Notes**: 
 - Plan has been created with 20 distinct tasks (including preparation task) across 7 phases
@@ -300,6 +300,15 @@ Key fields in an Open Horizon Service Definition File:
   - All validation passes (lint, typecheck, test)
   - Git repository initialized with initial commit
   - Detailed implementation plan documented in `docs/phase1-implementation-plan.md`
+- **Phase 2 COMPLETED** (Tasks 4-6): Dockerfile parsing
+  - File reader with comprehensive error handling (ENOENT, EACCES, EISDIR)
+  - Dockerfile parser using dockerfile-ast library
+  - Extraction of all major instructions: FROM, EXPOSE, ENV, CMD, ENTRYPOINT, WORKDIR, USER, VOLUME, LABEL
+  - Multi-stage build support (extracts final stage)
+  - Port parsing with protocol support (e.g., 8080/tcp)
+  - ENV instruction support for both formats (key=value and key value)
+  - 34 passing unit tests with comprehensive coverage
+  - All validation passes (lint, typecheck, test)
 
 **Key Findings from SDF Examples**:
 1. SDF structure confirmed with fields: org, label, description, url, version, arch, sharable, requiredServices, userInput, deployment
