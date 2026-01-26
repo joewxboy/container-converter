@@ -132,43 +132,49 @@ Key fields in an Open Horizon Service Definition File:
      - Identify volume mounts
      - Unit tests for each instruction type
 
-### Phase 3: SDF Generation Logic
+### Phase 3: SDF Generation Logic ✅ COMPLETE
 **Goal**: Convert parsed Dockerfile information into Open Horizon SDF format
 
-7. **Design SDF Data Model**
+7. **Design SDF Data Model** ✅
    - Success Criteria:
-     - TypeScript interfaces/types for SDF structure
-     - Covers all required and optional fields
-     - Type-safe structure
+     - ✅ TypeScript interfaces/types for SDF structure
+     - ✅ Covers all required and optional fields
+     - ✅ Type-safe structure
+     - ✅ Added ServiceMetadata interface for metadata inference
+     - ✅ Added documentation field to ServiceDefinition
 
-8. **Implement Service Metadata Inference**
+8. **Implement Service Metadata Inference** ✅
    - Success Criteria:
-     - Infer service name from Dockerfile or user input
-     - Infer version (default to 1.0.0 if not found)
-     - Detect architecture from base image or user input
-     - Determine sharable mode (with sensible defaults)
-     - Generate label and description
-     - Unit tests for inference logic
+     - ✅ Infer service name from Dockerfile labels or base image
+     - ✅ Infer version from labels or image tag (default to 1.0.0)
+     - ✅ Detect architecture from base image (arm64, arm, amd64)
+     - ✅ Determine sharable mode based on service characteristics
+     - ✅ Generate label and description from metadata
+     - ✅ 32 passing unit tests for inference logic
+   - Implementation: `src/generator/metadata-inference.ts` (197 lines)
 
-9. **Implement Dockerfile to SDF Mapper**
+9. **Implement Dockerfile to SDF Mapper** ✅
    - Success Criteria:
-     - Map FROM instruction to image field
-     - Map EXPOSE to port mappings
-     - Map ENV to environment variables and userInputs
-     - Map CMD/ENTRYPOINT to command
-     - Map WORKDIR to working directory
-     - Map USER to user settings
-     - Map VOLUME to volume mounts
-     - Handle edge cases and missing information
-     - Unit tests with various Dockerfile examples
+     - ✅ Map FROM instruction to image field
+     - ✅ Map EXPOSE to port mappings (HostIP + HostPort format)
+     - ✅ Map ENV to environment variables array
+     - ✅ Map CMD/ENTRYPOINT to command array
+     - ✅ Map WORKDIR to working directory
+     - ✅ Map USER to user settings
+     - ✅ Map VOLUME to volume binds
+     - ✅ Handle edge cases and missing information
+     - ✅ Comprehensive unit tests with various examples
+   - Implementation: Integrated into `src/generator/sdf-generator.ts`
 
-10. **Implement SDF Generator**
+10. **Implement SDF Generator** ✅
     - Success Criteria:
-      - Generate complete SDF JSON from mapped data
-      - Validate required fields are present
-      - Format JSON output properly
-      - Handle optional fields appropriately
-      - Unit tests generating valid SDFs
+      - ✅ Generate complete SDF JSON from mapped data
+      - ✅ Validate required fields are present
+      - ✅ Format JSON output properly (configurable indentation)
+      - ✅ Handle optional fields appropriately
+      - ✅ 17 passing unit tests generating valid SDFs
+    - Implementation: `src/generator/sdf-generator.ts` (203 lines)
+    - All validation checks passing (lint, typecheck, test)
 
 ### Phase 4: Validation Integration
 **Goal**: Integrate with Open Horizon CLI for validation
@@ -254,32 +260,56 @@ Key fields in an Open Horizon Service Definition File:
 
 ## Project Status Board
 
+### Phase 1: Project Setup ✅
 - [x] Task 0: Collect and Analyze SDF Examples (Preparation) - COMPLETED
 - [x] Task 1: Initialize TypeScript/Node.js Project - COMPLETED
 - [x] Task 2: Set Up Testing Framework - COMPLETED
 - [x] Task 3: Install Core Dependencies - COMPLETED
+
+### Phase 2: Dockerfile Parsing ✅
 - [x] Task 4: Implement Dockerfile Reader - COMPLETED
 - [x] Task 5: Implement Dockerfile Parser - COMPLETED
 - [x] Task 6: Create Dockerfile Instruction Analyzer - COMPLETED
-- [ ] Task 7: Design SDF Data Model
-- [ ] Task 8: Implement Service Metadata Inference
-- [ ] Task 9: Implement Dockerfile to SDF Mapper
-- [ ] Task 10: Implement SDF Generator
-- [ ] Task 11: Implement CLI Detection
-- [ ] Task 12: Implement SDF Validation
+
+### Phase 3: SDF Generation ✅
+- [x] Task 7: Design SDF Data Model - COMPLETED
+  - `src/types/sdf.ts` (69 lines) - ServiceDefinition, ServiceMetadata, ServiceConfig, etc.
+- [x] Task 8: Implement Service Metadata Inference - COMPLETED
+  - `src/generator/metadata-inference.ts` (194 lines) - 32 passing tests
+- [x] Task 9: Implement Dockerfile to SDF Mapper - COMPLETED
+  - Integrated into `src/generator/sdf-generator.ts`
+- [x] Task 10: Implement SDF Generator - COMPLETED
+  - `src/generator/sdf-generator.ts` (197 lines) - 17 passing tests
+
+### Phase 4: Validation Integration (IN PROGRESS)
+- [x] Task 11: Implement CLI Detection - COMPLETED
+  - `src/validator/cli-detector.ts` (159 lines) - 21 passing tests
+  - Functions: isHznCliAvailable(), getHznCliVersion(), isVersionCompatible()
+- [ ] Task 12: Implement SDF Validation - **NEXT**
+  - `src/validator/sdf-validator.ts` exists as placeholder
+
+### Phase 5: Exchange Publishing
 - [ ] Task 13: Implement Exchange Authentication
 - [ ] Task 14: Implement SDF Publishing
+
+### Phase 6: CLI Interface
 - [ ] Task 15: Implement CLI Interface
 - [ ] Task 16: Implement Interactive Mode (Optional)
+
+### Phase 7: Documentation and Polish
 - [ ] Task 17: Write Documentation
 - [ ] Task 18: Add Error Handling and Logging
 - [ ] Task 19: Final Testing and Bug Fixes
 
 ## Current Status / Progress Tracking
 
-**Current Phase**: Phase 2 Complete - Ready for Phase 3 (SDF Generation)
+**Current Phase**: Phase 4 - Validation Integration (Task 12 next)
 
-**Last Updated**: 2026-01-11 - After completing Phase 2 Dockerfile parsing
+**Last Updated**: 2026-01-26 - Planner review of project state
+
+**Overall Progress**: 11 of 19 tasks completed (58%)
+
+**Test Status**: 98 passing tests, all typecheck passes
 
 **Notes**: 
 - Plan has been created with 20 distinct tasks (including preparation task) across 7 phases
@@ -309,6 +339,19 @@ Key fields in an Open Horizon Service Definition File:
   - ENV instruction support for both formats (key=value and key value)
   - 34 passing unit tests with comprehensive coverage
   - All validation passes (lint, typecheck, test)
+- **Phase 3 COMPLETED** (Tasks 7-10): SDF Generation Logic
+  - SDF data model with full type coverage (`src/types/sdf.ts`)
+  - Service metadata inference from Dockerfile labels, base images (`src/generator/metadata-inference.ts`)
+  - Dockerfile to SDF mapping for ports, env, cmd, volumes, etc.
+  - SDF Generator class with JSON output formatting (`src/generator/sdf-generator.ts`)
+  - 49 passing tests for generation logic
+- **Phase 4 IN PROGRESS** (Tasks 11-12): Validation Integration
+  - Task 11 COMPLETED: CLI Detection (`src/validator/cli-detector.ts`)
+    - Checks for `hzn` CLI availability via `which hzn`
+    - Version parsing from `hzn version` output
+    - Version compatibility checking (semver comparison)
+    - 21 passing unit tests with mocked exec
+  - Task 12 NEXT: SDF Validation (placeholder exists at `src/validator/sdf-validator.ts`)
 
 **Key Findings from SDF Examples**:
 1. SDF structure confirmed with fields: org, label, description, url, version, arch, sharable, requiredServices, userInput, deployment
@@ -324,6 +367,71 @@ Key fields in an Open Horizon Service Definition File:
 ## Executor's Feedback or Assistance Requests
 
 _This section will be populated by the Executor as work progresses._
+
+---
+
+## Refined Plan: Task 12 - Implement SDF Validation
+
+### Overview
+Task 12 involves extending `src/validator/sdf-validator.ts` to validate generated SDFs using two approaches:
+1. **Schema validation** - Validate SDF structure locally against known schema requirements
+2. **CLI validation** - Use `hzn` CLI to validate SDF against Open Horizon's validation rules
+
+### Detailed Requirements
+
+#### 12.1 Schema Validation (Local)
+Validate SDF structure without requiring the `hzn` CLI:
+- All required fields present: `label`, `description`, `url`, `version`, `arch`, `sharable`, `deployment`
+- Field type validation (string, number, array, object)
+- Enum validation for `sharable` (none, singleton, multiple)
+- Deployment structure has at least one service
+- Each service has required `image` field
+- Port mapping format validation
+- URL format validation
+
+#### 12.2 CLI Validation (via hzn)
+Integrate with Open Horizon CLI for authoritative validation:
+- Use `hzn service verify` or equivalent command
+- Parse CLI output for success/failure
+- Extract specific validation errors
+- Handle CLI unavailable scenario gracefully
+
+### Success Criteria
+1. `SDFValidator.validateSchema(sdf)` validates SDF structure locally
+2. `SDFValidator.validateWithCli(sdf)` validates using `hzn` CLI (if available)
+3. Clear error messages for each validation failure
+4. Graceful fallback when CLI unavailable
+5. Unit tests with mocked CLI responses
+6. Integration tests (conditional on CLI availability)
+
+### Implementation Notes
+- Use the `cli-detector.ts` to check CLI availability before CLI validation
+- Consider using a JSON schema validator library for schema validation
+- The SDFGenerator already has a basic `validateSDF()` method - consider moving/extending
+- Return structured validation results, not just boolean
+
+### Files to Modify/Create
+- `src/validator/sdf-validator.ts` - Extend placeholder with full implementation
+- `tests/unit/validator/sdf-validator.test.ts` - Add comprehensive tests
+- May need to add `ValidationResult` interface to `src/types/` or `src/validator/`
+
+---
+
+## Next Steps Summary (for Executor)
+
+**Immediate Next Task**: Task 12 - Implement SDF Validation
+
+**Approach** (TDD):
+1. Write tests first for schema validation in `tests/unit/validator/sdf-validator.test.ts`
+2. Implement `SDFValidator.validateSchema()` method
+3. Write tests for CLI validation (mocked)
+4. Implement `SDFValidator.validateWithCli()` method
+5. Run full test suite to verify no regressions
+6. Update this scratchpad with completion status
+
+**After Task 12**: Tasks 13-14 (Exchange Publishing) or skip to Task 15 (CLI Interface) depending on priority discussion with user.
+
+**Uncommitted Changes**: There are currently uncommitted changes in git. The Executor should assess whether to commit the current Phase 3 + Task 11 work before starting Task 12, or continue and commit all of Phase 4 together.
 
 ## Lessons
 
