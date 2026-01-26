@@ -281,12 +281,15 @@ Key fields in an Open Horizon Service Definition File:
 - [x] Task 10: Implement SDF Generator - COMPLETED
   - `src/generator/sdf-generator.ts` (197 lines) - 17 passing tests
 
-### Phase 4: Validation Integration (IN PROGRESS)
+### Phase 4: Validation Integration ✅
 - [x] Task 11: Implement CLI Detection - COMPLETED
   - `src/validator/cli-detector.ts` (159 lines) - 21 passing tests
   - Functions: isHznCliAvailable(), getHznCliVersion(), isVersionCompatible()
-- [ ] Task 12: Implement SDF Validation - **NEXT**
-  - `src/validator/sdf-validator.ts` exists as placeholder
+- [x] Task 12: Implement SDF Validation - COMPLETED
+  - `src/validator/sdf-validator.ts` (310 lines) - 34 passing tests
+  - Schema validation for required fields, types, enums, deployment structure
+  - CLI validation via `hzn service verify` (mocked in tests)
+  - Combined validation with `validateFull()` method
 
 ### Phase 5: Exchange Publishing
 - [ ] Task 13: Implement Exchange Authentication
@@ -303,13 +306,13 @@ Key fields in an Open Horizon Service Definition File:
 
 ## Current Status / Progress Tracking
 
-**Current Phase**: Phase 4 - Validation Integration (Task 12 next)
+**Current Phase**: Phase 4 Complete - Ready for Phase 5 or 6
 
-**Last Updated**: 2026-01-26 - Planner review of project state
+**Last Updated**: 2026-01-26 - Task 12 (SDF Validation) completed
 
-**Overall Progress**: 11 of 19 tasks completed (58%)
+**Overall Progress**: 12 of 19 tasks completed (63%)
 
-**Test Status**: 98 passing tests, all typecheck passes
+**Test Status**: 131 passing tests, all validation passes (lint, typecheck, test)
 
 **Notes**: 
 - Plan has been created with 20 distinct tasks (including preparation task) across 7 phases
@@ -345,13 +348,18 @@ Key fields in an Open Horizon Service Definition File:
   - Dockerfile to SDF mapping for ports, env, cmd, volumes, etc.
   - SDF Generator class with JSON output formatting (`src/generator/sdf-generator.ts`)
   - 49 passing tests for generation logic
-- **Phase 4 IN PROGRESS** (Tasks 11-12): Validation Integration
+- **Phase 4 COMPLETED** (Tasks 11-12): Validation Integration
   - Task 11 COMPLETED: CLI Detection (`src/validator/cli-detector.ts`)
     - Checks for `hzn` CLI availability via `which hzn`
     - Version parsing from `hzn version` output
     - Version compatibility checking (semver comparison)
     - 21 passing unit tests with mocked exec
-  - Task 12 NEXT: SDF Validation (placeholder exists at `src/validator/sdf-validator.ts`)
+  - Task 12 COMPLETED: SDF Validation (`src/validator/sdf-validator.ts`)
+    - Schema validation: required fields, types, enums, deployment structure
+    - Port mapping, userInput, requiredServices validation
+    - CLI validation via `hzn service verify` command
+    - Combined validation with validateFull() method
+    - 34 passing unit tests with mocked exec and fs
 
 **Key Findings from SDF Examples**:
 1. SDF structure confirmed with fields: org, label, description, url, version, arch, sharable, requiredServices, userInput, deployment
@@ -419,19 +427,17 @@ Integrate with Open Horizon CLI for authoritative validation:
 
 ## Next Steps Summary (for Executor)
 
-**Immediate Next Task**: Task 12 - Implement SDF Validation
+**Task 12 COMPLETED** - SDF Validation implemented with 34 passing tests.
 
-**Approach** (TDD):
-1. Write tests first for schema validation in `tests/unit/validator/sdf-validator.test.ts`
-2. Implement `SDFValidator.validateSchema()` method
-3. Write tests for CLI validation (mocked)
-4. Implement `SDFValidator.validateWithCli()` method
-5. Run full test suite to verify no regressions
-6. Update this scratchpad with completion status
+**Decision Point - Next Task Options**:
+1. **Tasks 13-14 (Exchange Publishing)** - Implement authentication and publishing to Open Horizon Exchange
+   - Requires `hzn` CLI and Exchange credentials
+   - May need real Exchange instance for integration testing
+2. **Task 15 (CLI Interface)** - Build the user-facing command-line tool
+   - Uses commander.js (already installed)
+   - Enables end-to-end usage: `container-converter convert Dockerfile -o service.json`
 
-**After Task 12**: Tasks 13-14 (Exchange Publishing) or skip to Task 15 (CLI Interface) depending on priority discussion with user.
-
-**Uncommitted Changes**: There are currently uncommitted changes in git. The Executor should assess whether to commit the current Phase 3 + Task 11 work before starting Task 12, or continue and commit all of Phase 4 together.
+**Recommendation**: Task 15 (CLI Interface) provides the most immediate user value and doesn't require external dependencies. Exchange publishing can be added later.
 
 ## Lessons
 
