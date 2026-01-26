@@ -7,6 +7,7 @@ export interface ServiceDefinition {
   org?: string;
   label: string;
   description: string;
+  documentation?: string;
   public?: boolean;
   url: string;
   version: string;
@@ -15,6 +16,20 @@ export interface ServiceDefinition {
   requiredServices?: RequiredService[];
   userInput?: UserInput[];
   deployment: Deployment;
+}
+
+/**
+ * Metadata for service generation
+ * Used to provide additional context when generating SDFs
+ */
+export interface ServiceMetadata {
+  name: string;
+  version?: string;
+  architecture?: string;
+  organization?: string;
+  description?: string;
+  documentation?: string;
+  sharable?: 'none' | 'singleton' | 'multiple';
 }
 
 export interface RequiredService {
