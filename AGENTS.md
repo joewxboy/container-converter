@@ -38,7 +38,8 @@ npm run typecheck:watch   # Watch mode for type checking
 ### Validation
 ```bash
 npm run validate          # Run full validation (lint + typecheck + test)
-hzn exchange service verify <sdf-file>  # Validate SDF with Open Horizon CLI
+hzn service verify -f <sdf-file>        # Validate SDF locally with Open Horizon CLI
+hzn exchange service verify <sdf-file>  # Validate SDF against Exchange
 ```
 
 ## Code Style Guidelines
@@ -214,6 +215,12 @@ describe('DockerfileParser', () => {
 - Test edge cases and boundary conditions
 - Use integration tests for end-to-end workflows
 
+#### Mocking External Dependencies
+- Mock `child_process.exec` for CLI-dependent tests
+- Use `jest.mock('child_process')` and mock the callback pattern
+- Note: Node's `promisify(exec)` expects callback with `(error, { stdout, stderr })`
+- Mock `fs/promises` for file system operations in unit tests
+
 ### Documentation
 
 #### Code Comments
@@ -295,13 +302,16 @@ async function authenticateExchange(credentials: ExchangeCredentials): Promise<v
 
 #### Required Fields
 - Always include: `label`, `description`, `url`, `version`, `arch`, `sharable`, `deployment`
-- Validate SDF structure before output
+- Validate SDF structure before output using `SDFValidator.validateSchema()`
 - Use sensible defaults for optional fields
 
 #### Schema Validation
-- Validate against Open Horizon SDF schema
-- Provide clear error messages for validation failures
-- Support both JSON and YAML SDF formats if needed
+- Use `SDFValidator` class for validation (`src/validator/sdf-validator.ts`)
+- `validateSchema()` - Local structure validation without CLI
+- `validateWithCli()` - Validation using `hzn service verify` command
+- `validateFull()` - Combined schema + CLI validation
+- Provide clear error messages with field paths for validation failures
+- Return structured `ValidationResult` with errors array
 
 ### Development Workflow
 
