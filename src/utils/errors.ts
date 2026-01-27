@@ -26,3 +26,23 @@ export class ValidationError extends Error {
     this.name = 'ValidationError';
   }
 }
+
+export class ExchangeAuthError extends Error {
+  constructor(
+    message: string,
+    public readonly code?: string
+  ) {
+    super(`Exchange authentication failed: ${message}`);
+    this.name = 'ExchangeAuthError';
+  }
+}
+
+export class PublishError extends Error {
+  constructor(
+    message: string,
+    public readonly code?: string
+  ) {
+    super(`Publish failed: ${message}`);
+    this.name = 'PublishError';
+  }
+}

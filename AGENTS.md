@@ -135,6 +135,7 @@ src/
 ├── parser/        # Dockerfile parsing logic
 ├── generator/     # SDF generation logic
 ├── validator/     # SDF validation logic
+├── publisher/     # Exchange authentication and publishing
 ├── types/         # TypeScript type definitions
 ├── utils/         # Shared utilities
 └── index.ts       # Main entry point
@@ -312,6 +313,21 @@ async function authenticateExchange(credentials: ExchangeCredentials): Promise<v
 - `validateFull()` - Combined schema + CLI validation
 - Provide clear error messages with field paths for validation failures
 - Return structured `ValidationResult` with errors array
+
+#### Exchange Authentication (`src/publisher/exchange-auth.ts`)
+- `getCredentialsFromEnv()` - Read from `HZN_ORG_ID`, `HZN_EXCHANGE_USER_AUTH`, `HZN_EXCHANGE_URL`
+- `loadCredentialsFromFile()` - Parse `.cfg` and `.env` file formats
+- `validateCredentials()` - Local format validation
+- `verifyExchangeConnection()` - Test connectivity via `hzn exchange status`
+- `verifyUserAuth()` - Validate credentials via `hzn exchange user list`
+
+#### Exchange Publishing (`src/publisher/exchange-publisher.ts`)
+- `publishService(options)` - Publish SDF via `hzn exchange service publish`
+- `checkServiceExists()` - Check if service already exists in Exchange
+- `getPublishedVersions()` - List published versions for a service
+- `unpublishService()` - Remove service from Exchange
+- Supports `overwrite` and `dryRun` options
+- Credentials passed via environment variables (safer than CLI args)
 
 ### Development Workflow
 

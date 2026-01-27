@@ -291,9 +291,17 @@ Key fields in an Open Horizon Service Definition File:
   - CLI validation via `hzn service verify` (mocked in tests)
   - Combined validation with `validateFull()` method
 
-### Phase 5: Exchange Publishing
-- [ ] Task 13: Implement Exchange Authentication
-- [ ] Task 14: Implement SDF Publishing
+### Phase 5: Exchange Publishing ✅
+- [x] Task 13: Implement Exchange Authentication - COMPLETED
+  - `src/publisher/exchange-auth.ts` (340 lines) - 39 passing tests
+  - Functions: getCredentialsFromEnv(), loadCredentialsFromFile(), validateCredentials(), verifyExchangeConnection(), verifyUserAuth()
+  - Supports environment variables and .cfg/.env file formats
+  - User auth verified via `hzn exchange user list` command
+- [x] Task 14: Implement SDF Publishing - COMPLETED
+  - `src/publisher/exchange-publisher.ts` (280 lines) - 17 passing tests
+  - Functions: publishService(), checkServiceExists(), getPublishedVersions(), unpublishService()
+  - Supports overwrite, dry-run modes
+  - Uses `hzn exchange service publish` command
 
 ### Phase 6: CLI Interface
 - [ ] Task 15: Implement CLI Interface
@@ -306,13 +314,13 @@ Key fields in an Open Horizon Service Definition File:
 
 ## Current Status / Progress Tracking
 
-**Current Phase**: Phase 4 Complete - Ready for Phase 5 or 6
+**Current Phase**: Phase 5 Complete - Ready for Phase 6 (CLI Interface)
 
-**Last Updated**: 2026-01-26 - Task 12 (SDF Validation) completed
+**Last Updated**: 2026-01-26 - Task 14 (SDF Publishing) completed
 
-**Overall Progress**: 12 of 19 tasks completed (63%)
+**Overall Progress**: 14 of 19 tasks completed (74%)
 
-**Test Status**: 131 passing tests, all validation passes (lint, typecheck, test)
+**Test Status**: 187 passing tests, all validation passes (lint, typecheck, test)
 
 **Notes**: 
 - Plan has been created with 20 distinct tasks (including preparation task) across 7 phases
@@ -429,15 +437,156 @@ Integrate with Open Horizon CLI for authoritative validation:
 
 **Task 12 COMPLETED** - SDF Validation implemented with 34 passing tests.
 
-**Decision Point - Next Task Options**:
-1. **Tasks 13-14 (Exchange Publishing)** - Implement authentication and publishing to Open Horizon Exchange
-   - Requires `hzn` CLI and Exchange credentials
-   - May need real Exchange instance for integration testing
-2. **Task 15 (CLI Interface)** - Build the user-facing command-line tool
-   - Uses commander.js (already installed)
-   - Enables end-to-end usage: `container-converter convert Dockerfile -o service.json`
+**User selected Tasks 13-14 (Exchange Publishing)** - Proceed with authentication and publishing.
 
-**Recommendation**: Task 15 (CLI Interface) provides the most immediate user value and doesn't require external dependencies. Exchange publishing can be added later.
+---
+
+## Refined Plan: Tasks 13-14 - Exchange Authentication & Publishing
+
+### Environment Configuration Reference
+
+**Exchange URLs** (from `../agent-install.cfg`):
+- `HZN_EXCHANGE_URL=http://open-horizon.lfedge.iol.unh.edu:3090/v1`
+- `HZN_FSS_CSSURL=http://open-horizon.lfedge.iol.unh.edu:9443/`
+- `HZN_AGBOT_URL=http://open-horizon.lfedge.iol.unh.edu:3111`
+
+**User Credentials** (from `../mycreds.env`):
+- `HZN_ORG_ID=examples`
+- `HZN_EXCHANGE_USER_AUTH=joewxboy:4Weath*r` (username:password format)
+
+---
+
+### Task 13: Implement Exchange Authentication
+
+**Goal**: Create a module to handle Exchange authentication and credential management.
+
+#### 13.1 Credential Sources (priority order)
+1. Environment variables (`HZN_ORG_ID`, `HZN_EXCHANGE_USER_AUTH`, `HZN_EXCHANGE_URL`)
+2. Config file (user-provided path, supports `.cfg` and `.env` formats)
+3. Manual input via CLI options
+
+#### 13.2 Implementation Details
+
+**New File**: `src/publisher/exchange-auth.ts`
+
+**Interfaces**:
+```typescript
+interface ExchangeCredentials {
+  orgId: string;           // HZN_ORG_ID
+  userAuth: string;        // HZN_EXCHANGE_USER_AUTH (user:password)
+  exchangeUrl: string;     // HZN_EXCHANGE_URL
+}
+
+interface AuthResult {
+  authenticated: boolean;
+  credentials?: ExchangeCredentials;
+  error?: string;
+}
+```
+
+**Functions**:
+- `getCredentialsFromEnv(): ExchangeCredentials | null` - Read from environment
+- `loadCredentialsFromFile(path: string): Promise<ExchangeCredentials | null>` - Parse `.cfg` or `.env` file
+- `validateCredentials(creds: ExchangeCredentials): Promise<AuthResult>` - Test against Exchange
+- `verifyExchangeConnection(creds: ExchangeCredentials): Promise<boolean>` - Check Exchange is reachable
+
+#### 13.3 Success Criteria
+- [ ] Read credentials from environment variables
+- [ ] Load credentials from `.cfg` and `.env` file formats
+- [ ] Validate credential format (non-empty, correct format)
+- [ ] Test Exchange connectivity with `hzn exchange status` or HTTP request
+- [ ] Clear error messages for missing/invalid credentials
+- [ ] Unit tests with mocked environment and file system
+
+---
+
+### Task 14: Implement SDF Publishing
+
+**Goal**: Publish validated SDFs to the Open Horizon Exchange.
+
+#### 14.1 Implementation Details
+
+**New File**: `src/publisher/exchange-publisher.ts`
+
+**Interfaces**:
+```typescript
+interface PublishOptions {
+  credentials: ExchangeCredentials;
+  sdf: ServiceDefinition;
+  dockerImageSource?: string;  // Optional: path to Dockerfile for image push
+  overwrite?: boolean;         // Overwrite if service exists
+  dryRun?: boolean;            // Validate only, don't publish
+}
+
+interface PublishResult {
+  success: boolean;
+  serviceUrl?: string;         // Full service URL in Exchange
+  version?: string;
+  error?: string;
+  warnings?: string[];
+}
+```
+
+**Functions**:
+- `publishService(options: PublishOptions): Promise<PublishResult>`
+- `checkServiceExists(creds, org, url, version): Promise<boolean>`
+- `getPublishedVersions(creds, org, url): Promise<string[]>`
+
+#### 14.2 CLI Command
+Uses `hzn exchange service publish`:
+```bash
+hzn exchange service publish -f <sdf-file.json> \
+  -o $HZN_ORG_ID \
+  -u "$HZN_EXCHANGE_USER_AUTH"
+```
+
+#### 14.3 Success Criteria
+- [ ] Execute `hzn exchange service publish` command with SDF file
+- [ ] Pass credentials via environment variables (safer than CLI args)
+- [ ] Handle publish success response
+- [ ] Handle publish errors (already exists, auth failure, validation error)
+- [ ] Support overwrite/update existing service
+- [ ] Support dry-run mode (validate without publishing)
+- [ ] Return structured result with service URL
+- [ ] Unit tests with mocked CLI responses
+- [ ] Integration test (conditional on Exchange availability)
+
+---
+
+### Task Breakdown for Executor
+
+**Task 13 Sub-tasks**:
+1. Create `src/publisher/exchange-auth.ts` with interfaces
+2. Implement `getCredentialsFromEnv()`
+3. Implement `loadCredentialsFromFile()` for .cfg/.env parsing
+4. Implement `validateCredentials()` with format checking
+5. Implement `verifyExchangeConnection()` using `hzn exchange status`
+6. Write unit tests for all functions (mock env, fs, exec)
+7. Add `ExchangeAuthError` to `src/utils/errors.ts`
+
+**Task 14 Sub-tasks**:
+1. Create `src/publisher/exchange-publisher.ts` with interfaces
+2. Implement `publishService()` core function
+3. Implement `checkServiceExists()` using `hzn exchange service list`
+4. Implement error handling for various publish failures
+5. Add `PublishError` to `src/utils/errors.ts`
+6. Write unit tests with mocked CLI
+7. Create integration test (skipped if Exchange unavailable)
+
+---
+
+### Files to Create/Modify
+
+**New Files**:
+- `src/publisher/exchange-auth.ts`
+- `src/publisher/exchange-publisher.ts`
+- `tests/unit/publisher/exchange-auth.test.ts`
+- `tests/unit/publisher/exchange-publisher.test.ts`
+- `tests/integration/exchange-publish.test.ts` (optional)
+
+**Modified Files**:
+- `src/utils/errors.ts` - Add ExchangeAuthError, PublishError
+- `src/index.ts` - Export new modules
 
 ## Lessons
 
