@@ -304,7 +304,12 @@ Key fields in an Open Horizon Service Definition File:
   - Uses `hzn exchange service publish` command
 
 ### Phase 6: CLI Interface
-- [ ] Task 15: Implement CLI Interface
+- [x] Task 15: Implement CLI Interface - COMPLETED
+  - `src/cli/index.ts` (230 lines) - 13 passing tests
+  - Features: convert Dockerfile to SDF, custom metadata options
+  - Options: -o (output), -n (name), --svc-version, -a (arch), --org, --description
+  - Flags: --validate, --publish, --config, --creds, --overwrite, --dry-run
+  - Help text with examples and environment variable documentation
 - [ ] Task 16: Implement Interactive Mode (Optional)
 
 ### Phase 7: Documentation and Polish
@@ -314,13 +319,13 @@ Key fields in an Open Horizon Service Definition File:
 
 ## Current Status / Progress Tracking
 
-**Current Phase**: Phase 5 Complete - Ready for Phase 6 (CLI Interface)
+**Current Phase**: Phase 6 - CLI Interface (Task 15 Complete)
 
-**Last Updated**: 2026-01-26 - Task 14 (SDF Publishing) completed
+**Last Updated**: 2026-01-26 - Task 15 (CLI Interface) completed
 
-**Overall Progress**: 14 of 19 tasks completed (74%)
+**Overall Progress**: 15 of 19 tasks completed (79%)
 
-**Test Status**: 187 passing tests, all validation passes (lint, typecheck, test)
+**Test Status**: 200 passing tests, all validation passes (lint, typecheck, test)
 
 **Notes**: 
 - Plan has been created with 20 distinct tasks (including preparation task) across 7 phases

@@ -329,6 +329,57 @@ async function authenticateExchange(credentials: ExchangeCredentials): Promise<v
 - Supports `overwrite` and `dryRun` options
 - Credentials passed via environment variables (safer than CLI args)
 
+### CLI Interface (`src/cli/index.ts`)
+
+The `container-converter` CLI provides a complete interface for converting Dockerfiles to SDFs.
+
+#### Basic Usage
+```bash
+# Convert Dockerfile to SDF
+container-converter Dockerfile
+
+# With output path
+container-converter Dockerfile -o my-service.json
+
+# With full metadata
+container-converter Dockerfile -o my-service.json -n my-service --svc-version 1.0.0 -a arm64 --org myorg
+```
+
+#### CLI Options
+| Option | Description |
+|--------|-------------|
+| `-o, --output <path>` | Output path for generated SDF |
+| `-n, --name <name>` | Service name (inferred if not provided) |
+| `--svc-version <version>` | Service version (default: 1.0.0) |
+| `-a, --arch <arch>` | Target architecture (default: amd64) |
+| `--org <org>` | Organization ID |
+| `--description <desc>` | Service description |
+| `--validate` | Validate SDF with Open Horizon CLI |
+| `--publish` | Publish to Open Horizon Exchange |
+| `--config <path>` | Path to Exchange config file (.cfg) |
+| `--creds <path>` | Path to credentials file (.env) |
+| `--overwrite` | Overwrite existing service in Exchange |
+| `--dry-run` | Validate publish without publishing |
+
+#### Validation and Publishing
+```bash
+# Validate generated SDF
+container-converter Dockerfile --validate
+
+# Publish to Exchange (with env vars set)
+container-converter Dockerfile --publish
+
+# Publish with config files
+container-converter Dockerfile --publish --config agent-install.cfg --creds mycreds.env
+
+# Dry run (validate publish without actually publishing)
+container-converter Dockerfile --publish --dry-run
+```
+
+#### Exit Codes
+- `0` - Success
+- `1` - Error (parsing, validation, or publish failure)
+
 ### Development Workflow
 
 #### Branching Strategy
