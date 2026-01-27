@@ -238,7 +238,7 @@ export async function publishService(options: PublishOptions): Promise<PublishRe
 
       // Check for specific error types
       if (stderr.includes('401') || stderr.includes('Unauthorized')) {
-        throw new PublishError('Authentication failed. Please check your credentials.', '401');
+        throw new PublishError('Authentication failed. Please check your credentials.', { code: 'AUTH_FAILED' });
       }
 
       if (stderr.includes('already exists') && !overwrite) {
@@ -253,7 +253,7 @@ export async function publishService(options: PublishOptions): Promise<PublishRe
       if (stderr.includes('ECONNREFUSED') || stderr.includes('connection refused')) {
         throw new PublishError(
           `Cannot connect to Exchange at ${credentials.exchangeUrl}`,
-          'ECONNREFUSED'
+          { code: 'ECONNREFUSED' }
         );
       }
 

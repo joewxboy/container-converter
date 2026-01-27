@@ -467,6 +467,114 @@ container-converter-tui
 - Color-coded output (info, success, warning, error)
 - Keyboard shortcuts (Ctrl+C to exit)
 
+### Logger Utility (`src/utils/logger.ts`)
+
+Configurable logging system with multiple log levels.
+
+#### Usage
+```typescript
+import { logger, createLogger, LogLevel } from './utils/logger';
+
+// Use default logger
+logger.info('Processing file');
+logger.debug('Detailed debug info', { key: 'value' });
+logger.warn('Something might be wrong');
+logger.error('An error occurred');
+
+// Create module-specific logger
+const parserLogger = createLogger('parser');
+parserLogger.info('Parsing started');
+
+// Timing operations
+const done = logger.time('Operation');
+// ... do work ...
+done(); // Logs: "Operation completed in Xms"
+```
+
+#### Log Levels
+| Level | Description |
+|-------|-------------|
+| `DEBUG` | Detailed debugging information |
+| `INFO` | General informational messages |
+| `WARN` | Warning messages |
+| `ERROR` | Error messages |
+| `SILENT` | No output |
+
+#### Environment Variables
+| Variable | Description |
+|----------|-------------|
+| `LOG_LEVEL` | Set log level (DEBUG, INFO, WARN, ERROR, SILENT) |
+| `DEBUG` | Enable debug logging (any value) |
+| `NO_COLOR` | Disable colored output |
+
+### Error Classes (`src/utils/errors.ts`)
+
+Custom error classes with structured context and suggestions.
+
+#### Base Class
+```typescript
+class ContainerConverterError extends Error {
+  code: string;                    // Error code for programmatic handling
+  context?: Record<string, unknown>; // Additional context
+  suggestions?: string[];          // Resolution suggestions
+  
+  format(): string;                // Format error for display
+}
+```
+
+#### Available Error Classes
+| Error Class | Code | Description |
+|-------------|------|-------------|
+| `DockerfileParseError` | `DOCKERFILE_PARSE_ERROR` | Dockerfile parsing failures |
+| `SDFGenerationError` | `SDF_GENERATION_ERROR` | SDF generation failures |
+| `ValidationError` | `VALIDATION_ERROR` | SDF validation failures |
+| `ExchangeAuthError` | `EXCHANGE_AUTH_ERROR` | Exchange authentication issues |
+| `PublishError` | `PUBLISH_ERROR` | Service publishing failures |
+| `FileError` | `FILE_ERROR` | File operation failures |
+| `CliNotFoundError` | `CLI_NOT_FOUND` | CLI tool not available |
+| `NetworkError` | `NETWORK_ERROR` | Network connection issues |
+
+#### Usage
+```typescript
+import { 
+  DockerfileParseError, 
+  isContainerConverterError, 
+  formatError 
+} from './utils/errors';
+
+// Throw with context
+throw new DockerfileParseError('Invalid instruction', { 
+  line: 42,
+  context: { instruction: 'INVALID' }
+});
+
+// Check error type
+if (isContainerConverterError(error)) {
+  console.log(error.format()); // Formatted with suggestions
+}
+
+// Format any error
+console.log(formatError(error));
+```
+
+### Test Fixtures (`tests/fixtures/`)
+
+Test data for unit and integration tests.
+
+#### Dockerfile Fixtures (`tests/fixtures/dockerfiles/`)
+| File | Description |
+|------|-------------|
+| `simple.Dockerfile` | Basic Node.js application |
+| `complex.Dockerfile` | Multi-stage build with multiple ports/volumes |
+| `python-app.Dockerfile` | Python Flask application with labels |
+| `golang-service.Dockerfile` | Go microservice multi-stage build |
+| `minimal.Dockerfile` | Minimal Dockerfile (only FROM) |
+
+#### SDF Fixtures (`tests/fixtures/sdfs/`)
+| File | Description |
+|------|-------------|
+| `simple.json` | Valid SDF for testing validation |
+
 ### Development Workflow
 
 #### Branching Strategy
@@ -494,5 +602,4 @@ container-converter-tui
 - Keep dependencies minimal and up-to-date
 - Use `npm audit` regularly for security
 
-This document will be updated as the project evolves and new patterns emerge.</content>
-<parameter name="filePath">/Users/josephpearson/dev/container-converter/AGENTS.md
+This document will be updated as the project evolves and new patterns emerge.

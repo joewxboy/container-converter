@@ -85,7 +85,7 @@ export async function loadCredentialsFromFile(
     parseEnvFile(configContent, vars);
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
-      throw new ExchangeAuthError(`Configuration file not found: ${configPath}`, 'ENOENT');
+      throw new ExchangeAuthError(`Configuration file not found: ${configPath}`, { code: 'ENOENT' });
     }
     throw new ExchangeAuthError(
       `Failed to read configuration file: ${error instanceof Error ? error.message : String(error)}`
@@ -99,7 +99,7 @@ export async function loadCredentialsFromFile(
       parseEnvFile(credsContent, vars);
     } catch (error) {
       if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
-        throw new ExchangeAuthError(`Credentials file not found: ${credsPath}`, 'ENOENT');
+        throw new ExchangeAuthError(`Credentials file not found: ${credsPath}`, { code: 'ENOENT' });
       }
       throw new ExchangeAuthError(
         `Failed to read credentials file: ${error instanceof Error ? error.message : String(error)}`
