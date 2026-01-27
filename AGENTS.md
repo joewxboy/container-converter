@@ -132,6 +132,8 @@ async function readDockerfile(path: string): Promise<string> {
 ```
 src/
 ├── cli/           # Command-line interface
+├── mcp/           # MCP Server implementation
+├── tui/           # Interactive terminal UI (MCP Client)
 ├── parser/        # Dockerfile parsing logic
 ├── generator/     # SDF generation logic
 ├── validator/     # SDF validation logic
@@ -379,6 +381,91 @@ container-converter Dockerfile --publish --dry-run
 #### Exit Codes
 - `0` - Success
 - `1` - Error (parsing, validation, or publish failure)
+
+### MCP Server (`src/mcp/server.ts`)
+
+The `container-converter-mcp` binary runs an MCP (Model Context Protocol) server that exposes container-converter functionality as tools for AI assistants.
+
+#### Running the MCP Server
+```bash
+# Run directly with tsx
+npx tsx src/mcp/server.ts
+
+# Or after building
+container-converter-mcp
+```
+
+#### Available MCP Tools
+
+| Tool | Description |
+|------|-------------|
+| `convert_dockerfile` | Convert a Dockerfile to an SDF |
+| `validate_sdf` | Validate an SDF (schema and/or CLI) |
+| `publish_sdf` | Publish SDF to Open Horizon Exchange |
+| `check_hzn_cli` | Check if hzn CLI is available and get version |
+| `list_exchange_services` | List services in the Exchange |
+
+#### Tool Parameters
+
+**convert_dockerfile**
+- `dockerfile_path` (required): Path to Dockerfile
+- `name`, `version`, `arch`, `org`, `description`: Optional metadata
+- `output_path`: Optional path to save generated SDF
+
+**validate_sdf**
+- `sdf` (required): File path or SDF object
+- `use_cli`: Also validate with hzn CLI (default: true)
+
+**publish_sdf**
+- `sdf` (required): File path or SDF object
+- `config_path`, `creds_path`: Optional credential file paths
+- `overwrite`, `dry_run`: Optional flags
+
+#### MCP Configuration (for AI assistants)
+```json
+{
+  "mcpServers": {
+    "container-converter": {
+      "command": "npx",
+      "args": ["tsx", "/path/to/src/mcp/server.ts"]
+    }
+  }
+}
+```
+
+### Interactive TUI (`src/tui/`)
+
+The `container-converter-tui` binary provides an interactive terminal UI for conversational container conversion workflows.
+
+#### Running the TUI
+```bash
+# Run directly with tsx
+npx tsx src/tui/index.tsx
+
+# Or after building
+container-converter-tui
+```
+
+#### TUI Commands
+
+| Command | Description |
+|---------|-------------|
+| `convert <dockerfile>` | Convert a Dockerfile to SDF |
+| `validate <sdf-file>` | Validate an SDF file |
+| `publish <sdf-file>` | Publish SDF to Exchange |
+| `check cli` | Check hzn CLI availability |
+| `list services` | List Exchange services |
+| `preview` | Preview current SDF |
+| `save <path>` | Save current SDF to file |
+| `help` | Show available commands |
+| `quit` | Exit the application |
+
+#### TUI Features
+- Conversational interface with command history
+- Visual progress indicators (spinners)
+- SDF preview and editing workflow
+- Color-coded output (info, success, warning, error)
+- Keyboard shortcuts (Ctrl+C to exit)
 
 ### Development Workflow
 

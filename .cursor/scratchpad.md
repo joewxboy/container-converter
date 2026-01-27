@@ -227,31 +227,51 @@ Key fields in an Open Horizon Service Definition File:
       - Help text and usage examples
       - Error handling and user-friendly messages
 
-16. **Implement Interactive Mode (Optional Enhancement)**
+16. **Implement MCP Server**
     - Success Criteria:
-      - Prompt user for missing information
-      - Allow user to review and edit generated SDF
-      - Confirm before publishing
-      - Unit tests for interactive flows
+      - MCP Server exposing container-converter functionality as tools
+      - Tools corresponding to CLI commands:
+        - `convert_dockerfile` - Convert Dockerfile to SDF
+        - `validate_sdf` - Validate an SDF (schema and/or CLI)
+        - `publish_sdf` - Publish SDF to Open Horizon Exchange
+        - `check_hzn_cli` - Check if hzn CLI is available and version
+        - `list_exchange_services` - List services in Exchange
+      - Proper MCP protocol implementation (JSON-RPC over stdio)
+      - Tool parameter schemas with descriptions
+      - Error handling with MCP error codes
+      - Unit tests for tool handlers
+
+17. **Implement MCP Client with TUI (Optional Enhancement)**
+    - Success Criteria:
+      - Interactive terminal UI (TUI) similar to claude-cursor or opencode.ai
+      - MCP Client connecting to the MCP Server
+      - Conversational interface for container conversion workflow
+      - Visual display of conversion progress and results
+      - Interactive prompts for missing information
+      - Preview and edit generated SDF before saving
+      - Confirm before publishing to Exchange
+      - Keyboard navigation and shortcuts
+      - Unit tests for TUI components and MCP client
 
 ### Phase 7: Documentation and Polish
 **Goal**: Complete documentation and finalize the tool
 
-17. **Write Documentation**
+18. **Write Documentation**
     - Success Criteria:
       - README.md with usage instructions
       - Examples of common Dockerfile conversions
       - Troubleshooting guide
       - API documentation (if exposing library API)
+      - MCP Server usage and tool documentation
 
-18. **Add Error Handling and Logging**
+19. **Add Error Handling and Logging**
     - Success Criteria:
       - Comprehensive error handling throughout
       - Useful error messages
       - Logging levels (debug, info, warn, error)
       - Logging configuration
 
-19. **Final Testing and Bug Fixes**
+20. **Final Testing and Bug Fixes**
     - Success Criteria:
       - Test with various real-world Dockerfiles
       - Fix any discovered bugs
@@ -310,25 +330,37 @@ Key fields in an Open Horizon Service Definition File:
   - Options: -o (output), -n (name), --svc-version, -a (arch), --org, --description
   - Flags: --validate, --publish, --config, --creds, --overwrite, --dry-run
   - Help text with examples and environment variable documentation
-- [ ] Task 16: Implement Interactive Mode (Optional)
+- [x] Task 16: Implement MCP Server - COMPLETED
+  - `src/mcp/server.ts` (675 lines) - 12 passing tests
+  - MCP Server with 5 tools: convert_dockerfile, validate_sdf, publish_sdf, check_hzn_cli, list_exchange_services
+  - Proper JSON-RPC over stdio, tool schemas with Zod, error handling
+  - Binary: `container-converter-mcp`
+- [x] Task 17: Implement MCP Client with TUI - COMPLETED
+  - `src/tui/App.tsx` (415 lines) - Interactive terminal UI with Ink (React)
+  - `src/tui/mcp-client.ts` (240 lines) - MCP client for server communication
+  - `src/tui/index.tsx` - TUI entry point
+  - 19 passing tests for MCP client
+  - Features: conversational interface, progress display, preview/edit SDF
+  - Commands: convert, validate, publish, check cli, list services, preview, save
+  - Binary: `container-converter-tui`
 
 ### Phase 7: Documentation and Polish
-- [ ] Task 17: Write Documentation
-- [ ] Task 18: Add Error Handling and Logging
-- [ ] Task 19: Final Testing and Bug Fixes
+- [ ] Task 18: Write Documentation
+- [ ] Task 19: Add Error Handling and Logging
+- [ ] Task 20: Final Testing and Bug Fixes
 
 ## Current Status / Progress Tracking
 
-**Current Phase**: Phase 6 - CLI Interface (Task 15 Complete)
+**Current Phase**: Phase 6 - CLI Interface (COMPLETE)
 
-**Last Updated**: 2026-01-26 - Task 15 (CLI Interface) completed
+**Last Updated**: 2026-01-26 - Tasks 16 (MCP Server) and 17 (MCP Client TUI) completed
 
-**Overall Progress**: 15 of 19 tasks completed (79%)
+**Overall Progress**: 17 of 20 tasks completed (85%)
 
-**Test Status**: 200 passing tests, all validation passes (lint, typecheck, test)
+**Test Status**: 231 passing tests, all validation passes (lint, typecheck, test)
 
 **Notes**: 
-- Plan has been created with 20 distinct tasks (including preparation task) across 7 phases
+- Plan has been created with 21 distinct tasks (including preparation task) across 7 phases
 - Each task has clear success criteria
 - Tasks are designed to be completed incrementally with testing at each step
 - The plan follows TDD principles where applicable
