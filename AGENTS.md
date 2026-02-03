@@ -602,9 +602,9 @@ Test data for unit and integration tests.
 - Keep dependencies minimal and up-to-date
 - Use `npm audit` regularly for security
 
-## Docker Compose Support (Work in Progress)
+## Docker Compose Support
 
-**Status**: Phase 3 Complete - CLI Integration Done!
+**Status**: Phase 4 Complete - MCP/TUI Integration Done! ✅
 
 The project has been successfully extended to support docker-compose.yml files in addition to Dockerfiles. See [docs/docker-compose-support-plan.md](docs/docker-compose-support-plan.md) for the complete implementation plan.
 
@@ -631,11 +631,20 @@ The project has been successfully extended to support docker-compose.yml files i
 - Publishing for all SDFs (one-by-one, continue on failure)
 - 13 passing integration tests
 - Full backward compatibility with Dockerfiles
-- **Total tests: 386 (up from 373)**
 
-**⏳ Phase 4-5: Pending**
-- MCP/TUI updates for compose support
+**✅ Phase 4: MCP/TUI Integration (COMPLETE)**
+- MCP Server: `convert_compose` and `parse_compose` tools
+- MCP Server: Enhanced `validate_sdf` and `publish_sdf` for arrays
+- TUI: `convert compose`, `parse compose`, `strategy` commands
+- TUI: Enhanced preview/save/publish for multi-SDF
+- 60+ new tests (MCP, TUI, integration)
+- Complete documentation (`docs/mcp-compose-tools.md`)
+- **Total tests: 446+ (up from 386)**
+
+**⏳ Phase 5: Pending**
 - Documentation updates (README with compose examples)
+- Migration guide for docker-compose users
+- Additional real-world examples
 
 ### Docker Compose Guidelines
 

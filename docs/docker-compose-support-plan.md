@@ -889,12 +889,17 @@ Add TUI commands:
 - [ ] Update help text and examples
 - [ ] Add CLI integration tests
 
-### Phase 4: MCP/TUI Integration (Week 6)
+### Phase 4: MCP/TUI Integration (Week 6) ✅ COMPLETE
 
-- [ ] Add convert_compose MCP tool
-- [ ] Update TUI with Compose commands
-- [ ] Add TUI tests
-- [ ] Update MCP documentation
+- [x] Add convert_compose MCP tool
+- [x] Add parse_compose MCP tool
+- [x] Update validate_sdf to handle arrays of SDFs
+- [x] Update publish_sdf to handle arrays of SDFs
+- [x] Update TUI with Compose commands
+- [x] Add MCP server tests for compose tools
+- [x] Add TUI tests for compose commands
+- [x] Add integration tests for multi-SDF workflows
+- [x] Update MCP documentation (docs/mcp-compose-tools.md)
 
 ### Phase 5: Documentation & Examples (Week 7)
 
