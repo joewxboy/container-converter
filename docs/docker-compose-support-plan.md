@@ -901,21 +901,651 @@ Add TUI commands:
 - [x] Add integration tests for multi-SDF workflows
 - [x] Update MCP documentation (docs/mcp-compose-tools.md)
 
-### Phase 5: Documentation & Examples (Week 7)
+### Phase 5: Documentation & Examples (Week 7) ✅ COMPLETE
 
-- [ ] Create Compose example files in tests/fixtures/
-- [ ] Add Compose conversion examples to README
-- [ ] Document strategy selection guidelines
-- [ ] Create migration guide (Compose → SDF best practices)
-- [ ] Update AGENTS.md with Compose guidelines
+- [x] Create Compose example files in tests/fixtures/
+- [x] Add Compose conversion examples to README
+- [x] Document strategy selection guidelines
+- [x] Create migration guide (Compose → SDF best practices)
+- [x] Update AGENTS.md with Compose guidelines
 
 ### Phase 6: Polish & Release (Week 8)
 
-- [ ] End-to-end testing
-- [ ] Performance optimization
-- [ ] Error message improvements
-- [ ] Release notes
-- [ ] Blog post / announcement
+#### 6.1 End-to-End Testing Plan
+
+**Objective:** Validate complete workflows from Compose file to deployed service on Open Horizon edge nodes.
+
+**Test Scenarios:**
+
+**Scenario 1: Simple Single-Service Application**
+```bash
+# Test: Convert, validate, and publish a simple nginx service
+# Input: simple.docker-compose.yml (1 service, no dependencies)
+# Expected: Single SDF generated, validated, published successfully
+
+container-converter tests/fixtures/compose/simple.docker-compose.yml \
+  --strategy single-sdf \
+  -o /tmp/simple.json \
+  --org testorg \
+  --validate \
+  --publish \
+  --dry-run
+
+# Verify:
+# - SDF file created at /tmp/simple.json
+# - Schema validation passes
+# - CLI validation passes (if hzn available)
+# - Dry-run publish succeeds
+# - Exit code: 0
+```
+
+**Scenario 2: Multi-Service Application with Dependencies**
+```bash
+# Test: Convert WordPress + MySQL with dependency mapping
+# Input: wordpress.docker-compose.yml (2 services, depends_on)
+# Expected: Multi-SDF generated with requiredServices
+
+container-converter tests/fixtures/compose/wordpress.docker-compose.yml \
+  --strategy multi-sdf \
+  --output-dir /tmp/wordpress-sdfs \
+  --org testorg \
+  --validate
+
+# Verify:
+# - Two SDF files created: wordpress.json, db.json
+# - wordpress.json has requiredServices pointing to db
+# - Both SDFs validate successfully
+# - Dependency graph: db -> wordpress
+# - Exit code: 0
+```
+
+**Scenario 3: Complex Multi-Service Application**
+```bash
+# Test: Convert complex app with multiple dependencies
+# Input: with-dependencies.docker-compose.yml (3+ services, complex deps)
+# Expected: Multi-SDF with correct dependency order
+
+container-converter tests/fixtures/compose/with-dependencies.docker-compose.yml \
+  --strategy multi-sdf \
+  --output-dir /tmp/complex-sdfs \
+  --org testorg \
+  --svc-version 2.0.0 \
+  -a arm64 \
+  --validate \
+  --publish \
+  --dry-run
+
+# Verify:
+# - All service SDFs created
+# - Dependency graph is acyclic
+# - Topological sort order is correct
+# - All SDFs validate
+# - Dry-run publish succeeds in dependency order
+# - Exit code: 0
+```
+
+**Scenario 4: Auto-Strategy Inference**
+```bash
+# Test: Let tool infer best strategy
+# Input: Various compose files
+# Expected: Correct strategy chosen automatically
+
+# Simple app -> single-sdf
+container-converter tests/fixtures/compose/simple.docker-compose.yml
+
+# Complex app -> multi-sdf
+container-converter tests/fixtures/compose/with-dependencies.docker-compose.yml
+
+# Verify:
+# - Strategy inference logs show reasoning
+# - Correct strategy applied
+# - Output matches expected format
+```
+
+**Scenario 5: Legacy v2.x Compose Format**
+```bash
+# Test: Parse and convert legacy v2.x format
+# Input: v2-legacy.docker-compose.yml
+# Expected: Warning about deprecated version field, successful conversion
+
+container-converter tests/fixtures/compose/v2-legacy.docker-compose.yml \
+  -o /tmp/v2-legacy.json
+
+# Verify:
+# - Warning logged about deprecated 'version' field
+# - Conversion succeeds
+# - SDF is valid
+# - Exit code: 0
+```
+
+**Scenario 6: Environment Variable Substitution**
+```bash
+# Test: Substitute environment variables in Compose file
+# Input: Compose file with ${VAR}, ${VAR:-default}, ${VAR-default}
+# Expected: Variables substituted correctly
+
+export TEST_IMAGE=nginx:alpine
+export TEST_PORT=8080
+export MISSING_VAR_WITH_DEFAULT=  # Empty, should use default
+
+container-converter tests/fixtures/compose/env-vars.docker-compose.yml \
+  -o /tmp/env-vars.json
+
+# Verify:
+# - TEST_IMAGE substituted in SDF
+# - TEST_PORT substituted in port mapping
+# - MISSING_VAR_WITH_DEFAULT uses default value
+# - Unset variables result in empty strings
+```
+
+**Scenario 7: Error Handling - Missing Image**
+```bash
+# Test: Error when service has no image and no build
+# Input: Compose file with service missing image
+# Expected: Clear error message with suggestions
+
+container-converter tests/fixtures/compose/missing-image.docker-compose.yml
+
+# Verify:
+# - Error message includes service name
+# - Suggestions include build and push commands
+# - Exit code: 1
+```
+
+**Scenario 8: Error Handling - Unsupported Features**
+```bash
+# Test: Warnings for unsupported features
+# Input: complex-features.docker-compose.yml (networks, secrets, healthcheck)
+# Expected: Warnings logged, conversion continues
+
+container-converter tests/fixtures/compose/complex-features.docker-compose.yml \
+  -o /tmp/complex.json
+
+# Verify:
+# - Warnings logged for: networks, secrets, healthcheck
+# - Conversion completes successfully
+# - SDF is valid (unsupported features omitted)
+# - Exit code: 0
+```
+
+**Scenario 9: MCP Server Integration**
+```bash
+# Test: MCP tools work end-to-end
+# Expected: All MCP tools function correctly
+
+# Start MCP server
+npx tsx src/mcp/server.ts &
+MCP_PID=$!
+
+# Test convert_compose tool
+# Test parse_compose tool
+# Test validate_sdf with array of SDFs
+# Test publish_sdf with array of SDFs
+
+kill $MCP_PID
+
+# Verify:
+# - All tools respond correctly
+# - Error handling works
+# - Results match CLI behavior
+```
+
+**Scenario 10: TUI Integration**
+```bash
+# Test: TUI commands work end-to-end
+# Expected: All TUI commands function correctly
+
+# Run TUI in test mode
+echo "convert compose tests/fixtures/compose/simple.docker-compose.yml
+preview
+save /tmp/tui-test.json
+quit" | npx tsx src/tui/index.tsx
+
+# Verify:
+# - Conversion succeeds
+# - Preview displays SDF
+# - Save creates file
+# - Exit code: 0
+```
+
+**E2E Test Implementation:**
+
+Create `tests/e2e/compose-workflows.test.ts`:
+
+```typescript
+describe('Compose E2E Workflows', () => {
+  describe('Single-SDF Workflow', () => {
+    it('should convert, validate, and prepare for publish', async () => {
+      // Test Scenario 1
+    });
+  });
+
+  describe('Multi-SDF Workflow', () => {
+    it('should convert with dependencies', async () => {
+      // Test Scenario 2
+    });
+
+    it('should handle complex dependencies', async () => {
+      // Test Scenario 3
+    });
+  });
+
+  describe('Strategy Inference', () => {
+    it('should infer single-sdf for simple apps', async () => {
+      // Test Scenario 4a
+    });
+
+    it('should infer multi-sdf for complex apps', async () => {
+      // Test Scenario 4b
+    });
+  });
+
+  describe('Legacy Format Support', () => {
+    it('should handle v2.x format with warning', async () => {
+      // Test Scenario 5
+    });
+  });
+
+  describe('Environment Variables', () => {
+    it('should substitute all variable formats', async () => {
+      // Test Scenario 6
+    });
+  });
+
+  describe('Error Handling', () => {
+    it('should error on missing image', async () => {
+      // Test Scenario 7
+    });
+
+    it('should warn on unsupported features', async () => {
+      // Test Scenario 8
+    });
+  });
+
+  describe('MCP Integration', () => {
+    it('should work via MCP tools', async () => {
+      // Test Scenario 9
+    });
+  });
+
+  describe('TUI Integration', () => {
+    it('should work via TUI commands', async () => {
+      // Test Scenario 10
+    });
+  });
+});
+```
+
+**Performance Benchmarks:**
+
+```typescript
+describe('Performance Benchmarks', () => {
+  it('should parse 10-service compose in <500ms', async () => {
+    const start = Date.now();
+    await parser.parseFile('large-compose.yml');
+    const duration = Date.now() - start;
+    expect(duration).toBeLessThan(500);
+  });
+
+  it('should generate multi-SDF for 10 services in <1s', async () => {
+    const start = Date.now();
+    await generator.generate(composeData, { strategy: 'multi-sdf' });
+    const duration = Date.now() - start;
+    expect(duration).toBeLessThan(1000);
+  });
+
+  it('should validate 10 SDFs in <5s', async () => {
+    const start = Date.now();
+    for (const sdf of sdfs) {
+      await validator.validateFull(sdf);
+    }
+    const duration = Date.now() - start;
+    expect(duration).toBeLessThan(5000);
+  });
+});
+```
+
+#### 6.2 Error Message Improvements
+
+**Objective:** Provide clear, actionable error messages with context and suggestions.
+
+**Error Message Patterns:**
+
+**Pattern 1: Missing Required Field**
+
+```typescript
+// Before (generic)
+throw new Error('Service must have image');
+
+// After (specific with context)
+throw new SDFGenerationError(
+  `Service '${serviceName}' must specify an 'image' field`,
+  {
+    context: {
+      serviceName,
+      hasImage: false,
+      hasBuild: !!service.build,
+      composeFile: filePath
+    },
+    suggestions: [
+      'Option 1: Pre-build and push your image:',
+      '  docker build -t myregistry.io/myapp:1.0 .',
+      '  docker push myregistry.io/myapp:1.0',
+      '  Then update docker-compose.yml:',
+      '    services:',
+      `      ${serviceName}:`,
+      '        image: myregistry.io/myapp:1.0',
+      '',
+      'Option 2: Use an existing image from Docker Hub:',
+      `    ${serviceName}:`,
+      '      image: nginx:alpine'
+    ]
+  }
+);
+```
+
+**Pattern 2: Unsupported Feature with Alternative**
+
+```typescript
+// Before (warning only)
+logger.warn('Networks not supported');
+
+// After (detailed with alternative)
+if (composeData.networks && Object.keys(composeData.networks).length > 0) {
+  const networkNames = Object.keys(composeData.networks).join(', ');
+  logger.warn(
+    `Custom networks detected: ${networkNames}\n` +
+    '\n' +
+    'Open Horizon manages networking automatically.\n' +
+    'Services can communicate using service names as hostnames.\n' +
+    '\n' +
+    'Example:\n' +
+    '  # In docker-compose.yml\n' +
+    '  services:\n' +
+    '    web:\n' +
+    '      environment:\n' +
+    '        API_URL: http://api:3000  # Use service name\n' +
+    '    api:\n' +
+    '      ports:\n' +
+    '        - "3000:3000"\n' +
+    '\n' +
+    'No custom network configuration needed!'
+  );
+}
+```
+
+**Pattern 3: Invalid Configuration**
+
+```typescript
+// Before (cryptic)
+throw new Error('Invalid port format');
+
+// After (specific with examples)
+throw new DockerfileParseError(
+  `Invalid port format in service '${serviceName}': "${portStr}"`,
+  {
+    context: {
+      serviceName,
+      invalidPort: portStr,
+      validFormats: [
+        '80',                    // Container port only
+        '8080:80',              // Host:Container
+        '127.0.0.1:8080:80',    // IP:Host:Container
+        '8080:80/tcp',          // With protocol
+        '8080:80/udp'           // UDP protocol
+      ]
+    },
+    suggestions: [
+      'Valid port formats:',
+      '  - "80"                    # Expose container port 80',
+      '  - "8080:80"              # Map host 8080 to container 80',
+      '  - "127.0.0.1:8080:80"    # Bind to specific IP',
+      '  - "8080:80/tcp"          # Specify TCP protocol',
+      '  - "8080:80/udp"          # Specify UDP protocol',
+      '',
+      `Update your docker-compose.yml:`,
+      `  services:`,
+      `    ${serviceName}:`,
+      `      ports:`,
+      `        - "8080:80"  # Example fix`
+    ]
+  }
+);
+```
+
+**Pattern 4: File Not Found**
+
+```typescript
+// Before (generic)
+throw new Error('File not found');
+
+// After (helpful)
+throw new FileError(
+  `Compose file not found: ${filePath}`,
+  {
+    context: {
+      filePath,
+      cwd: process.cwd(),
+      searchedPaths: [
+        path.resolve(filePath),
+        path.resolve(process.cwd(), filePath)
+      ]
+    },
+    suggestions: [
+      'Check that the file exists:',
+      `  ls -la ${filePath}`,
+      '',
+      'Common compose file names:',
+      '  - docker-compose.yml',
+      '  - docker-compose.yaml',
+      '  - compose.yml',
+      '  - compose.yaml',
+      '',
+      'Try specifying the full path:',
+      `  container-converter /full/path/to/docker-compose.yml`
+    ]
+  }
+);
+```
+
+**Pattern 5: Validation Failure**
+
+```typescript
+// Before (list of errors)
+console.error('Validation failed:', errors);
+
+// After (formatted with context)
+const formatValidationErrors = (errors: ValidationError[], sdfPath: string): string => {
+  const header = `❌ Validation failed for ${path.basename(sdfPath)}\n`;
+  const errorList = errors.map((err, idx) => {
+    const fieldPath = err.field ? ` at '${err.field}'` : '';
+    return `  ${idx + 1}. ${err.message}${fieldPath}`;
+  }).join('\n');
+  
+  const suggestions = [
+    '',
+    'Common fixes:',
+    '  - Ensure all required fields are present (label, url, version, arch)',
+    '  - Check that image names are valid',
+    '  - Verify port mappings use correct format',
+    '  - Confirm organization ID is set (--org flag)',
+    '',
+    'For detailed validation:',
+    `  hzn service verify -f ${sdfPath}`
+  ].join('\n');
+  
+  return header + errorList + suggestions;
+};
+
+logger.error(formatValidationErrors(validationResult.errors, sdfPath));
+```
+
+**Pattern 6: Dependency Cycle Detection**
+
+```typescript
+// Before (generic)
+throw new Error('Circular dependency');
+
+// After (specific with visualization)
+const detectCycle = (graph: DependencyGraph): string[] | null => {
+  // ... cycle detection logic
+  return cycle;
+};
+
+const cycle = detectCycle(dependencyGraph);
+if (cycle) {
+  const cycleVisualization = cycle.join(' -> ') + ' -> ' + cycle[0];
+  throw new SDFGenerationError(
+    'Circular dependency detected in service dependencies',
+    {
+      context: {
+        cycle,
+        cycleVisualization,
+        allServices: Object.keys(dependencyGraph)
+      },
+      suggestions: [
+        'Dependency cycle found:',
+        `  ${cycleVisualization}`,
+        '',
+        'To fix:',
+        '  1. Review your depends_on declarations',
+        '  2. Remove circular dependencies',
+        '  3. Consider using runtime service discovery instead',
+        '',
+        'Example fix:',
+        '  # Remove one of these depends_on declarations:',
+        ...cycle.map((service, idx) => {
+          const next = cycle[(idx + 1) % cycle.length];
+          return `  # ${service} depends_on: ${next}`;
+        })
+      ]
+    }
+  );
+}
+```
+
+**Pattern 7: Exchange Connection Failure**
+
+```typescript
+// Before (generic network error)
+throw new Error('Connection failed');
+
+// After (diagnostic with troubleshooting)
+throw new NetworkError(
+  'Failed to connect to Open Horizon Exchange',
+  {
+    context: {
+      exchangeUrl: credentials.url,
+      orgId: credentials.orgId,
+      error: originalError.message
+    },
+    suggestions: [
+      'Troubleshooting steps:',
+      '',
+      '1. Verify Exchange URL is correct:',
+      `   Current: ${credentials.url}`,
+      `   Expected format: http://exchange.example.com:3090/v1`,
+      '',
+      '2. Check network connectivity:',
+      `   curl -s ${credentials.url}/admin/status`,
+      '',
+      '3. Verify credentials:',
+      `   export HZN_ORG_ID=${credentials.orgId}`,
+      `   export HZN_EXCHANGE_USER_AUTH=user:password`,
+      `   hzn exchange user list`,
+      '',
+      '4. Check firewall/proxy settings:',
+      '   - Ensure port 3090 is accessible',
+      '   - Check if proxy is required',
+      '',
+      '5. Verify Exchange service is running:',
+      '   docker ps | grep exchange',
+      '   # or',
+      '   systemctl status horizon-exchange'
+    ]
+  }
+);
+```
+
+**Error Message Testing:**
+
+Create `tests/unit/utils/error-messages.test.ts`:
+
+```typescript
+describe('Error Messages', () => {
+  describe('SDFGenerationError', () => {
+    it('should format missing image error with suggestions', () => {
+      const error = new SDFGenerationError(
+        "Service 'web' must specify an 'image' field",
+        {
+          context: { serviceName: 'web' },
+          suggestions: ['Build and push image', 'Use existing image']
+        }
+      );
+      
+      const formatted = error.format();
+      expect(formatted).toContain('web');
+      expect(formatted).toContain('Build and push image');
+      expect(formatted).toContain('Use existing image');
+    });
+  });
+
+  describe('ValidationError formatting', () => {
+    it('should format multiple validation errors clearly', () => {
+      const errors = [
+        { field: 'url', message: 'URL is required' },
+        { field: 'version', message: 'Version must be semver' }
+      ];
+      
+      const formatted = formatValidationErrors(errors, 'test.json');
+      expect(formatted).toContain('❌');
+      expect(formatted).toContain('url');
+      expect(formatted).toContain('version');
+      expect(formatted).toContain('Common fixes');
+    });
+  });
+
+  describe('Network error formatting', () => {
+    it('should provide troubleshooting steps', () => {
+      const error = new NetworkError('Connection failed', {
+        context: { exchangeUrl: 'http://exchange:3090/v1' },
+        suggestions: ['Check connectivity', 'Verify credentials']
+      });
+      
+      const formatted = error.format();
+      expect(formatted).toContain('Troubleshooting');
+      expect(formatted).toContain('curl');
+      expect(formatted).toContain('3090');
+    });
+  });
+});
+```
+
+**Implementation Checklist:**
+
+- [ ] Implement all E2E test scenarios
+- [ ] Add performance benchmarks
+- [ ] Update all error classes with new patterns
+- [ ] Add error message formatting utilities
+- [ ] Test error messages with real users
+- [ ] Document error codes and recovery steps
+- [ ] Create error message style guide
+
+#### 6.3 Performance Optimization
+
+- [ ] Profile parser performance with large Compose files
+- [ ] Optimize dependency graph construction
+- [ ] Cache parsed Compose data for repeated conversions
+- [ ] Parallelize SDF validation when possible
+- [ ] Optimize file I/O operations
+
+#### 6.4 Release Preparation
+
+- [ ] Write release notes with feature highlights
+- [ ] Update version numbers (package.json, etc.)
+- [ ] Create migration guide for existing users
+- [ ] Prepare blog post / announcement
+- [ ] Update changelog
 
 ## Feature Mapping: Compose → Open Horizon
 
