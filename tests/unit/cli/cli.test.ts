@@ -41,8 +41,11 @@ describe('Container Converter CLI', () => {
       const { stdout } = await execAsync(`npx tsx ${CLI_PATH} --help`);
       
       expect(stdout).toContain('container-converter');
-      expect(stdout).toContain('Convert Dockerfiles to Open Horizon Service Definition Files');
+      expect(stdout).toContain('Convert Dockerfiles and docker-compose.yml');
+      expect(stdout).toContain('SDFs');
       expect(stdout).toContain('--output');
+      expect(stdout).toContain('--strategy');
+      expect(stdout).toContain('--output-dir');
       expect(stdout).toContain('--validate');
       expect(stdout).toContain('--publish');
     });
@@ -57,7 +60,8 @@ describe('Container Converter CLI', () => {
       const { stdout } = await execAsync(`npx tsx ${CLI_PATH} --help`);
       
       expect(stdout).toContain('Examples:');
-      expect(stdout).toContain('Basic conversion');
+      expect(stdout).toContain('Convert Dockerfile to SDF');
+      expect(stdout).toContain('docker-compose.yml');
       expect(stdout).toContain('Environment Variables:');
     });
   });

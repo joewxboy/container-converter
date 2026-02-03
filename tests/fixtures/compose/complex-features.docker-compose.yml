@@ -1,0 +1,46 @@
+services:
+  app:
+    image: myapp:latest
+    ports:
+      - target: 8080
+        published: 80
+        protocol: tcp
+        mode: host
+      - '443:8443/tcp'
+    environment:
+      APP_ENV: production
+      LOG_LEVEL: info
+      DEBUG: 'false'
+    command: ['/app/server', '--port', '8080']
+    entrypoint: ['/bin/sh', '-c']
+    working_dir: /app
+    user: '1000:1000'
+    privileged: true
+    tmpfs:
+      - /tmp
+      - /run
+    volumes:
+      - type: bind
+        source: ./config
+        target: /app/config
+        read_only: true
+      - app-data:/app/data:rw
+    depends_on:
+      db:
+        condition: service_healthy
+        restart: true
+    labels:
+      com.example.version: '1.0'
+      com.example.team: 'backend'
+
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_PASSWORD: secret
+
+volumes:
+  app-data:
+
+networks:
+  default:
+    driver: bridge

@@ -602,4 +602,462 @@ Test data for unit and integration tests.
 - Keep dependencies minimal and up-to-date
 - Use `npm audit` regularly for security
 
+## Docker Compose Support
+
+**Status**: Phase 5 In Progress - Documentation & Examples ✅
+
+The project has been successfully extended to support docker-compose.yml files in addition to Dockerfiles. See [docs/docker-compose-support-plan.md](docs/docker-compose-support-plan.md) for the complete implementation plan.
+
+### Current Status
+
+**✅ Phase 1: Foundation (COMPLETE)**
+- ComposeParser implemented (`src/parser/compose-parser.ts` - 180 lines)
+- Compose type definitions created (`src/types/compose.ts`)
+- 35 passing unit tests
+- Test fixtures in `tests/fixtures/compose/`
+
+**✅ Phase 2: SDF Generation (COMPLETE)**
+- ComposeSdfGenerator implemented (`src/generator/compose-sdf-generator.ts` - 330 lines)
+- Single-SDF and multi-SDF generation strategies
+- Strategy inference logic (≤3 services + no deps → single-SDF)
+- 39 passing unit tests
+- Complete service mapping (ports, env, volumes, commands, tmpfs, privileged)
+
+**✅ Phase 3: CLI Integration (COMPLETE)**
+- Input type detection (dockerfile vs compose)
+- --type, --strategy, --output-dir CLI options
+- Single-SDF and multi-SDF conversion paths
+- Validation for all SDFs in multi-SDF mode
+- Publishing for all SDFs (one-by-one, continue on failure)
+- 13 passing integration tests
+- Full backward compatibility with Dockerfiles
+
+**✅ Phase 4: MCP/TUI Integration (COMPLETE)**
+- MCP Server: `convert_compose` and `parse_compose` tools
+- MCP Server: Enhanced `validate_sdf` and `publish_sdf` for arrays
+- TUI: `convert compose`, `parse compose`, `strategy` commands
+- TUI: Enhanced preview/save/publish for multi-SDF
+- 60+ new tests (MCP, TUI, integration)
+- Complete documentation (`docs/mcp-compose-tools.md`)
+- **Total tests: 446+ (up from 386)**
+
+**🔄 Phase 5: In Progress**
+- ✅ README updated with comprehensive Compose examples
+- ✅ Strategy selection guidelines documented
+- ✅ Enhanced migration guide with step-by-step instructions
+- ✅ AGENTS.md updated with Docker Compose guidelines
+- ⏳ Additional real-world examples (if needed)
+
+### Docker Compose Development Guidelines
+
+#### When to Use Single-SDF vs Multi-SDF
+
+**Use Single-SDF when:**
+- Application has 1-3 services
+- No service dependencies (`depends_on`)
+- Services are tightly coupled (always deploy together)
+- Simple development/testing scenarios
+- All services target same architecture
+
+**Use Multi-SDF when:**
+- Application has 4+ services
+- Services have dependencies
+- Services need independent versioning
+- Building reusable service components
+- Production deployments
+- Following Open Horizon best practices
+
+**Example Decision Tree:**
+
+```typescript
+function inferStrategy(composeData: ComposeData): GenerationStrategy {
+  const serviceCount = Object.keys(composeData.services).length;
+  const hasDependencies = Object.values(composeData.services).some(
+    (service) => service.depends_on
+  );
+  const hasComplexNetworking =
+    composeData.networks && Object.keys(composeData.networks).length > 1;
+
+  // Use multi-SDF for complex deployments
+  if (serviceCount > 3 || hasDependencies || hasComplexNetworking) {
+    return 'multi-sdf';
+  }
+
+  return 'single-sdf';
+}
+```
+
+#### Feature Mapping Reference
+
+**Fully Supported Features:**
+
+| Compose Field | SDF Mapping | Notes |
+|---------------|-------------|-------|
+| `image` | `ServiceConfig.image` | Required - must be pre-built |
+| `ports` | `ServiceConfig.ports` | All formats supported (short, long) |
+| `environment` | `ServiceConfig.environment` | Array and object formats |
+| `command` | `ServiceConfig.command` | Combined with entrypoint |
+| `entrypoint` | `ServiceConfig.command` | Prepended to command |
+| `volumes` (bind) | `ServiceConfig.binds` | Bind mounts only |
+| `tmpfs` | `ServiceConfig.tmpfs` | Direct mapping |
+| `privileged` | `ServiceConfig.privileged` | Direct mapping |
+| `depends_on` | `requiredServices` | Multi-SDF only |
+
+**Partially Supported Features:**
+
+| Compose Field | Status | Handling |
+|---------------|--------|----------|
+| `networks` | ⚠️ Warn | Open Horizon manages networking |
+| `volumes` (named) | ⚠️ Warn | Recommend bind mounts instead |
+| `restart` | ℹ️ Info | Open Horizon handles via policy |
+| `labels` | ℹ️ Info | Can map to metadata if needed |
+
+**Unsupported Features:**
+
+| Compose Field | Status | Alternative |
+|---------------|--------|-------------|
+| `build` | ❌ Error | Pre-build and push to registry |
+| `secrets` | ❌ Warn | Use environment variables |
+| `configs` | ❌ Warn | Use environment variables or bind mounts |
+| `healthcheck` | ❌ Warn | Open Horizon uses agreements |
+| `deploy` | ❌ Warn | Open Horizon handles orchestration |
+
+#### Testing Multi-Container Conversions
+
+**Test Fixtures Available:**
+
+```
+tests/fixtures/compose/
+├── simple.docker-compose.yml              # Single service
+├── multi-service.docker-compose.yml       # Multiple services, no deps
+├── with-dependencies.docker-compose.yml   # Services with depends_on
+├── wordpress.docker-compose.yml           # Real-world example
+├── complex-features.docker-compose.yml    # Advanced features
+└── v2-legacy.docker-compose.yml          # Legacy v2.x format
+```
+
+**Test Strategy:**
+
+1. **Unit Tests** - Test parser and generator separately
+2. **Integration Tests** - Test full conversion workflow
+3. **Real-World Tests** - Use actual Compose files (WordPress, EdgeX)
+
+**Example Test Pattern:**
+
+```typescript
+describe('Multi-SDF Generation', () => {
+  it('should generate separate SDFs for each service', async () => {
+    const composeData = await parser.parseFile('with-dependencies.docker-compose.yml');
+    const result = generator.generate(composeData, { strategy: 'multi-sdf' });
+    
+    expect(result.sdfs).toHaveProperty('web');
+    expect(result.sdfs).toHaveProperty('api');
+    expect(result.sdfs).toHaveProperty('db');
+  });
+
+  it('should map depends_on to requiredServices', async () => {
+    const composeData = await parser.parseFile('with-dependencies.docker-compose.yml');
+    const result = generator.generate(composeData, { strategy: 'multi-sdf' });
+    
+    const apiSdf = result.sdfs.api;
+    expect(apiSdf.requiredServices).toContainEqual(
+      expect.objectContaining({ url: expect.stringContaining('db') })
+    );
+  });
+
+  it('should build correct dependency graph', async () => {
+    const composeData = await parser.parseFile('with-dependencies.docker-compose.yml');
+    const result = generator.generate(composeData, { strategy: 'multi-sdf' });
+    
+    expect(result.dependencyGraph.db).toEqual([]);
+    expect(result.dependencyGraph.api).toContain('db');
+    expect(result.dependencyGraph.web).toContain('api');
+  });
+});
+```
+
+#### Error Handling Best Practices
+
+**Required Image Validation:**
+
+```typescript
+if (!composeService.image) {
+  throw new SDFGenerationError(
+    `Service ${serviceName} must specify an 'image'. ` +
+    `'build' is not supported - pre-build images and push to a registry.`,
+    {
+      context: { serviceName, hasImage: false, hasBuild: !!composeService.build },
+      suggestions: [
+        'Build your image: docker build -t myregistry.io/service:1.0 .',
+        'Push to registry: docker push myregistry.io/service:1.0',
+        'Update compose file to use image: myregistry.io/service:1.0'
+      ]
+    }
+  );
+}
+```
+
+**Network Warnings:**
+
+```typescript
+if (composeData.networks && Object.keys(composeData.networks).length > 0) {
+  logger.warn(
+    'Custom networks detected. Open Horizon manages networking automatically. ' +
+    'Services can communicate using service names as hostnames.'
+  );
+}
+```
+
+**Named Volume Warnings:**
+
+```typescript
+if (composeData.volumes && Object.keys(composeData.volumes).length > 0) {
+  logger.warn(
+    'Named volumes detected. Consider using bind mounts for edge deployments: ' +
+    'volumes: ["/host/path:/container/path:rw"]'
+  );
+}
+```
+
+#### CLI Integration Patterns
+
+**Input Type Detection:**
+
+```typescript
+function detectInputType(filePath: string): 'dockerfile' | 'compose' {
+  const basename = path.basename(filePath).toLowerCase();
+
+  // Check filename patterns
+  if (
+    basename === 'docker-compose.yml' ||
+    basename === 'docker-compose.yaml' ||
+    basename === 'compose.yml' ||
+    basename === 'compose.yaml'
+  ) {
+    return 'compose';
+  }
+
+  if (basename === 'dockerfile' || basename.includes('dockerfile')) {
+    return 'dockerfile';
+  }
+
+  // Fallback: check file content
+  const content = fs.readFileSync(filePath, 'utf-8');
+  if (content.trim().startsWith('services:') || content.includes('\nservices:')) {
+    return 'compose';
+  }
+
+  return 'dockerfile';
+}
+```
+
+**Multi-SDF Output Handling:**
+
+```typescript
+// For multi-SDF, create output directory
+if (strategy === 'multi-sdf') {
+  const outputDir = options.outputDir || './sdfs';
+  await fs.mkdir(outputDir, { recursive: true });
+
+  for (const [serviceName, sdf] of Object.entries(result.sdfs)) {
+    const outputPath = path.join(outputDir, `${serviceName}.json`);
+    await fs.writeFile(outputPath, JSON.stringify(sdf, null, 2));
+    logger.info(`Generated: ${outputPath}`);
+  }
+}
+```
+
+**Validation for Multi-SDF:**
+
+```typescript
+// Validate all SDFs
+if (options.validate) {
+  for (const [serviceName, sdf] of Object.entries(result.sdfs)) {
+    const validationResult = await validator.validateFull(sdf);
+    if (!validationResult.valid) {
+      logger.error(`Validation failed for ${serviceName}:`, validationResult.errors);
+      process.exit(1);
+    }
+    logger.info(`✓ Validated: ${serviceName}`);
+  }
+}
+```
+
+**Publishing for Multi-SDF:**
+
+```typescript
+// Publish in dependency order (topological sort)
+if (options.publish) {
+  const publishOrder = topologicalSort(result.dependencyGraph);
+  
+  for (const serviceName of publishOrder) {
+    const sdf = result.sdfs[serviceName];
+    try {
+      await publishService({ credentials, sdf, overwrite: options.overwrite });
+      logger.info(`✓ Published: ${serviceName}`);
+    } catch (error) {
+      logger.error(`Failed to publish ${serviceName}:`, error);
+      if (!options.continueOnError) {
+        process.exit(1);
+      }
+    }
+  }
+}
+```
+
+#### MCP Tool Integration
+
+**convert_compose Tool:**
+
+```typescript
+{
+  name: 'convert_compose',
+  description: 'Convert docker-compose.yml to Open Horizon SDF(s)',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      compose_path: { type: 'string', description: 'Path to docker-compose.yml' },
+      strategy: {
+        type: 'string',
+        enum: ['single-sdf', 'multi-sdf', 'auto'],
+        description: 'Generation strategy (auto-inferred if omitted)'
+      },
+      output_dir: { type: 'string', description: 'Output directory for multi-SDF' },
+      name: { type: 'string', description: 'Project name' },
+      version: { type: 'string', description: 'Service version' },
+      arch: { type: 'string', description: 'Target architecture' },
+      org: { type: 'string', description: 'Organization ID' }
+    },
+    required: ['compose_path']
+  }
+}
+```
+
+**parse_compose Tool:**
+
+```typescript
+{
+  name: 'parse_compose',
+  description: 'Parse docker-compose.yml and return structured data',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      compose_path: { type: 'string', description: 'Path to docker-compose.yml' }
+    },
+    required: ['compose_path']
+  }
+}
+```
+
+#### Common Pitfalls and Solutions
+
+**Pitfall 1: Forgetting to Pre-build Images**
+
+```yaml
+# ❌ This will fail
+services:
+  web:
+    build: ./web
+```
+
+**Solution:**
+
+```bash
+# Build and push first
+docker build -t myregistry.io/web:1.0 ./web
+docker push myregistry.io/web:1.0
+
+# Then update compose file
+services:
+  web:
+    image: myregistry.io/web:1.0
+```
+
+**Pitfall 2: Using Named Volumes on Edge**
+
+```yaml
+# ⚠️ May not work on all edge devices
+volumes:
+  - db-data:/var/lib/mysql
+```
+
+**Solution:**
+
+```yaml
+# Use bind mounts instead
+volumes:
+  - /data/mysql:/var/lib/mysql:rw
+```
+
+**Pitfall 3: Complex Network Configurations**
+
+```yaml
+# ⚠️ Open Horizon manages networking
+networks:
+  frontend:
+    driver: bridge
+  backend:
+    driver: bridge
+```
+
+**Solution:** Remove custom networks. Services communicate via service names automatically.
+
+**Pitfall 4: Assuming Docker Compose Behavior**
+
+```yaml
+# ⚠️ restart policies work differently
+restart: always
+```
+
+**Solution:** Configure restart behavior via Open Horizon node policies, not in SDF.
+
+#### Performance Considerations
+
+**Large Compose Files:**
+
+- Parser handles files up to 10MB efficiently
+- Multi-SDF generation scales linearly with service count
+- Validation time depends on `hzn` CLI performance
+
+**Optimization Tips:**
+
+1. Use `--strategy single-sdf` for simple apps (faster)
+2. Skip CLI validation during development (`--validate` only for production)
+3. Batch publish operations when possible
+4. Cache parsed Compose data for repeated conversions
+
+#### Future Enhancements
+
+**Pattern Generation (Phase 6):**
+
+```typescript
+// Generate Open Horizon pattern from multi-SDF
+function generatePattern(sdfs: Record<string, ServiceDefinition>): Pattern {
+  return {
+    label: 'Generated Pattern',
+    services: Object.entries(sdfs).map(([name, sdf]) => ({
+      serviceUrl: sdf.url,
+      serviceVersions: [{ version: sdf.version }]
+    }))
+  };
+}
+```
+
+**Build Support (Phase 7):**
+
+```typescript
+// Auto-build and push images before conversion
+async function buildAndPush(composeData: ComposeData): Promise<ComposeData> {
+  for (const [name, service] of Object.entries(composeData.services)) {
+    if (service.build) {
+      await buildImage(service.build, name);
+      await pushImage(name);
+      service.image = `${registry}/${name}:${version}`;
+      delete service.build;
+    }
+  }
+  return composeData;
+}
+```
+
 This document will be updated as the project evolves and new patterns emerge.
