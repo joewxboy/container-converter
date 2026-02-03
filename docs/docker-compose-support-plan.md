@@ -15,6 +15,28 @@ This document outlines the plan to extend `container-converter` to support docke
 - ✅ SDF validator handles multiple services correctly
 - ✅ SDF generator creates only one service per Dockerfile
 
+### Docker Compose Version Compatibility
+
+**Unified Parser Approach:**
+
+The tool uses a **single parser** for both Docker Compose v2.x/v3.x and the modern Compose Specification. This works because:
+
+1. **Backward Compatibility**: The Compose Specification is a superset of v2.x/v3.x formats. Core service fields (`image`, `ports`, `environment`, `volumes`, `depends_on`, `command`, `entrypoint`) are identical across all versions.
+
+2. **Feature Extraction**: We only extract fields that:
+   - Exist in all Compose versions
+   - Map directly to Open Horizon SDF ServiceConfig
+   - Are relevant for edge deployments
+
+3. **Version Field Handling**: The deprecated `version` field (v2.x/v3.x) triggers an informational warning but doesn't block parsing. The parser successfully processes files with or without this field.
+
+4. **Version-Specific Features We Ignore**:
+   - v2.x resource limits (`cpu_shares`, `mem_limit`) - not extracted
+   - v3.x deploy configs (`deploy.replicas`, `deploy.resources`) - not relevant for single-node edge
+   - Network drivers - Open Horizon manages networking
+
+**Testing**: The test suite includes `v2-legacy.docker-compose.yml` fixture that validates v2.4 files parse correctly alongside modern Compose Specification files.
+
 **Open Horizon Multi-Container Architecture:**
 
 Based on research and the [EdgeX Kamakura example](https://github.com/edgexfoundry-holding/orra/tree/main/demos/OH-EXF-Kamakura), Open Horizon supports two approaches:

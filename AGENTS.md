@@ -602,4 +602,65 @@ Test data for unit and integration tests.
 - Keep dependencies minimal and up-to-date
 - Use `npm audit` regularly for security
 
+## Docker Compose Support (Work in Progress)
+
+**Status**: Phase 3 Complete - CLI Integration Done!
+
+The project has been successfully extended to support docker-compose.yml files in addition to Dockerfiles. See [docs/docker-compose-support-plan.md](docs/docker-compose-support-plan.md) for the complete implementation plan.
+
+### Current Status
+
+**✅ Phase 1: Foundation (COMPLETE)**
+- ComposeParser implemented (`src/parser/compose-parser.ts` - 180 lines)
+- Compose type definitions created (`src/types/compose.ts`)
+- 35 passing unit tests
+- Test fixtures in `tests/fixtures/compose/`
+
+**✅ Phase 2: SDF Generation (COMPLETE)**
+- ComposeSdfGenerator implemented (`src/generator/compose-sdf-generator.ts` - 330 lines)
+- Single-SDF and multi-SDF generation strategies
+- Strategy inference logic (≤3 services + no deps → single-SDF)
+- 39 passing unit tests
+- Complete service mapping (ports, env, volumes, commands, tmpfs, privileged)
+
+**✅ Phase 3: CLI Integration (COMPLETE)**
+- Input type detection (dockerfile vs compose)
+- --type, --strategy, --output-dir CLI options
+- Single-SDF and multi-SDF conversion paths
+- Validation for all SDFs in multi-SDF mode
+- Publishing for all SDFs (one-by-one, continue on failure)
+- 13 passing integration tests
+- Full backward compatibility with Dockerfiles
+- **Total tests: 386 (up from 373)**
+
+**⏳ Phase 4-5: Pending**
+- MCP/TUI updates for compose support
+- Documentation updates (README with compose examples)
+
+### Docker Compose Guidelines
+
+When working with docker-compose support:
+
+1. **Strategy Selection**
+   - Simple apps (1-3 services, no dependencies) → single-SDF
+   - Complex apps (4+ services, dependencies) → multi-SDF
+
+2. **Feature Mapping**
+   - `image` is required (no `build` support initially)
+   - `depends_on` maps to `requiredServices`
+   - `ports`, `environment`, `volumes` map to SDF ServiceConfig
+   - Warn on unsupported features (networks, secrets, configs)
+
+3. **Testing Multi-Container Conversions**
+   - Use fixtures in `tests/fixtures/compose/`
+   - Test both single-SDF and multi-SDF strategies
+   - Validate dependency graph construction
+   - Test with real-world examples (WordPress, EdgeX)
+
+4. **Error Handling**
+   - Error if service has no `image` field
+   - Warn on custom networks (Open Horizon manages networking)
+   - Warn on named volumes (recommend bind mounts)
+   - Provide clear suggestions for unsupported features
+
 This document will be updated as the project evolves and new patterns emerge.

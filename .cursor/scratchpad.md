@@ -645,6 +645,80 @@ hzn exchange service publish -f <sdf-file.json> \
 - `src/utils/errors.ts` - Add ExchangeAuthError, PublishError
 - `src/index.ts` - Export new modules
 
+## Docker Compose Support Extension (NEW GOAL)
+
+**Status**: Phase 2 Complete, Phase 3 In Progress
+
+The project is being extended to support docker-compose.yml files in addition to Dockerfiles. See [docs/docker-compose-support-plan.md](docs/docker-compose-support-plan.md) for the complete implementation plan.
+
+### Docker Compose Implementation Status
+
+**✅ Phase 1: Foundation (COMPLETE)**
+- [x] Install dependencies (yaml, @json-types/compose, ajv)
+- [x] Create Compose type definitions (`src/types/compose.ts`)
+- [x] Implement ComposeParser (`src/parser/compose-parser.ts` - 180 lines)
+- [x] Add comprehensive unit tests (35 passing tests)
+- [x] Create test fixtures in `tests/fixtures/compose/`
+
+**✅ Phase 2: SDF Generation (COMPLETE)**
+- [x] Implement ComposeSdfGenerator class (`src/generator/compose-sdf-generator.ts` - 330 lines)
+- [x] Implement single-SDF generation strategy
+- [x] Implement multi-SDF generation strategy
+- [x] Add strategy inference logic (based on service count, dependencies, networks)
+- [x] Add unit tests for generator (39 passing tests)
+- [x] All tests passing (373 total, up from 311)
+
+**⏳ Phase 3: CLI Integration (PENDING)**
+- [ ] Update CLI to accept Compose files (detect docker-compose.yml)
+- [ ] Add input type detection (dockerfile vs compose)
+- [ ] Add --strategy option (single-sdf, multi-sdf, auto)
+- [ ] Add --output-dir option for multi-SDF generation
+- [ ] Update help text and examples
+- [ ] Add CLI integration tests
+
+**⏳ Phase 4: MCP/TUI Integration (PENDING)**
+- [ ] Add convert_compose MCP tool
+- [ ] Update TUI with Compose commands
+- [ ] Add TUI tests
+- [ ] Update MCP documentation
+
+**⏳ Phase 5: Documentation (PENDING)**
+- [ ] Update README with Compose examples
+- [ ] Document strategy selection guidelines
+- [ ] Create migration guide (Compose → SDF)
+- [ ] Update AGENTS.md with Compose guidelines
+
+### Key Docker Compose Features
+
+**Version Compatibility:**
+- Single parser handles both Docker Compose v2.x/v3.x and Compose Specification
+- Compose Specification is backward compatible (superset of v2.x/v3.x)
+- Only extracts common fields that exist in all versions
+- Deprecated `version` field triggers informational warning but doesn't block parsing
+- Test suite includes v2.4 legacy file validation
+
+**Strategy Inference:**
+- Simple apps (≤3 services, no deps) → single-SDF
+- Complex apps (4+ services OR dependencies OR multiple networks) → multi-SDF
+
+**Service Mapping:**
+- Validates `image` field is present (errors if missing with helpful message)
+- Maps ports, environment, volumes, commands, tmpfs, privileged
+- Handles both array and object formats for dependencies
+- Combines entrypoint + command correctly
+
+**Dependency Management:**
+- Extracts dependencies from `depends_on` (array or object format)
+- Builds dependency graph for multi-SDF generation
+- Maps to `requiredServices` in Open Horizon SDFs
+
+### Test Coverage
+- ComposeParser: 35 tests
+- ComposeSdfGenerator: 39 tests
+- Total project tests: 373 (all passing)
+
+---
+
 ## Lessons
 
 ### Implementation Lessons

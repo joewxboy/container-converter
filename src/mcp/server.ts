@@ -15,7 +15,9 @@ import {
 import { z } from 'zod';
 
 import { DockerfileParser } from '../parser/dockerfile-parser';
+import { ComposeParser } from '../parser/compose-parser';
 import { SDFGenerator } from '../generator/sdf-generator';
+import { ComposeSdfGenerator } from '../generator/compose-sdf-generator';
 import { SDFValidator } from '../validator/sdf-validator';
 import { isHznCliAvailable, getHznCliVersion } from '../validator/cli-detector';
 import { readDockerfile } from '../utils/file-reader';
@@ -31,6 +33,7 @@ import {
   checkServiceExists,
 } from '../publisher/exchange-publisher';
 import type { ServiceDefinition, ServiceMetadata } from '../types/sdf';
+import type { ComposeData } from '../types/compose';
 
 // Tool parameter schemas
 const ConvertDockerfileSchema = z.object({
@@ -43,17 +46,40 @@ const ConvertDockerfileSchema = z.object({
   output_path: z.string().optional().describe('Output path for generated SDF'),
 });
 
+const ConvertComposeSchema = z.object({
+  compose_path: z.string().describe('Path to the docker-compose.yml file to convert'),
+  strategy: z.enum(['single-sdf', 'multi-sdf', 'auto']).optional().describe('SDF generation strategy (default: auto)'),
+  name: z.string().optional().describe('Project name (inferred if not provided)'),
+  version: z.string().optional().describe('Service version (default: 1.0.0)'),
+  arch: z.string().optional().describe('Target architecture (default: amd64)'),
+  org: z.string().optional().describe('Organization ID'),
+  output_dir: z.string().optional().describe('Output directory for multi-SDF generation'),
+});
+
+const ParseComposeSchema = z.object({
+  compose_path: z.string().describe('Path to the docker-compose.yml file to parse'),
+});
+
 const ValidateSdfSchema = z.object({
-  sdf: z.string().or(z.record(z.string(), z.unknown())).describe('SDF to validate (file path or object)'),
+  sdf: z.union([
+    z.string(),
+    z.record(z.string(), z.unknown()),
+    z.array(z.record(z.string(), z.unknown()))
+  ]).describe('SDF(s) to validate (file path, object, or array of objects)'),
   use_cli: z.boolean().optional().describe('Also validate with hzn CLI (default: true)'),
 });
 
 const PublishSdfSchema = z.object({
-  sdf: z.string().or(z.record(z.string(), z.unknown())).describe('SDF to publish (file path or object)'),
+  sdf: z.union([
+    z.string(),
+    z.record(z.string(), z.unknown()),
+    z.array(z.record(z.string(), z.unknown()))
+  ]).describe('SDF(s) to publish (file path, object, or array of objects)'),
   config_path: z.string().optional().describe('Path to Exchange config file (.cfg)'),
   creds_path: z.string().optional().describe('Path to credentials file (.env)'),
   overwrite: z.boolean().optional().describe('Overwrite if service exists (default: false)'),
   dry_run: z.boolean().optional().describe('Validate without publishing (default: false)'),
+  continue_on_error: z.boolean().optional().describe('Continue publishing remaining SDFs if one fails (default: true)'),
 });
 
 const ListExchangeServicesSchema = z.object({
@@ -127,6 +153,60 @@ export class ContainerConverterServer {
                 },
               },
               required: ['dockerfile_path'],
+            },
+          },
+          {
+            name: 'convert_compose',
+            description: 'Convert a docker-compose.yml file to Open Horizon Service Definition File(s). Can generate a single SDF with all services or multiple SDFs (one per service) based on strategy.',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                compose_path: {
+                  type: 'string',
+                  description: 'Path to the docker-compose.yml file to convert',
+                },
+                strategy: {
+                  type: 'string',
+                  description: 'SDF generation strategy: single-sdf (all services in one SDF), multi-sdf (one SDF per service), or auto (infer based on complexity)',
+                  enum: ['single-sdf', 'multi-sdf', 'auto'],
+                },
+                name: {
+                  type: 'string',
+                  description: 'Project name (inferred from compose file if not provided)',
+                },
+                version: {
+                  type: 'string',
+                  description: 'Service version (default: 1.0.0)',
+                },
+                arch: {
+                  type: 'string',
+                  description: 'Target architecture (default: amd64)',
+                  enum: ['amd64', 'arm64', 'arm'],
+                },
+                org: {
+                  type: 'string',
+                  description: 'Organization ID',
+                },
+                output_dir: {
+                  type: 'string',
+                  description: 'Output directory for multi-SDF generation (required if strategy is multi-sdf)',
+                },
+              },
+              required: ['compose_path'],
+            },
+          },
+          {
+            name: 'parse_compose',
+            description: 'Parse a docker-compose.yml file and return structured information about services, networks, volumes, and dependencies without generating SDFs',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                compose_path: {
+                  type: 'string',
+                  description: 'Path to the docker-compose.yml file to parse',
+                },
+              },
+              required: ['compose_path'],
             },
           },
           {
@@ -230,6 +310,10 @@ export class ContainerConverterServer {
         switch (name) {
           case 'convert_dockerfile':
             return await this.handleConvertDockerfile(args);
+          case 'convert_compose':
+            return await this.handleConvertCompose(args);
+          case 'parse_compose':
+            return await this.handleParseCompose(args);
           case 'validate_sdf':
             return await this.handleValidateSdf(args);
           case 'publish_sdf':
@@ -257,6 +341,176 @@ export class ContainerConverterServer {
         };
       }
     });
+  }
+
+  /**
+   * Handle convert_compose tool
+   */
+  private async handleConvertCompose(args: unknown): Promise<{ content: Array<{ type: string; text: string }> }> {
+    const parsed = ConvertComposeSchema.parse(args);
+
+    // Parse compose file
+    const parser = new ComposeParser();
+    const composeData = await parser.parseFile(parsed.compose_path);
+
+    // Build options
+    const options = {
+      strategy: parsed.strategy as 'single-sdf' | 'multi-sdf' | undefined,
+      organization: parsed.org,
+      version: parsed.version || '1.0.0',
+      architecture: parsed.arch || 'amd64',
+      projectName: parsed.name || composeData.name,
+    };
+
+    // Generate SDF(s)
+    const generator = new ComposeSdfGenerator();
+    const result = generator.generate(composeData, options);
+
+    // Handle single-SDF result
+    if ('label' in result) {
+      const sdf = result as ServiceDefinition;
+      
+      // Write to file if output_dir provided
+      if (parsed.output_dir) {
+        const fs = await import('fs/promises');
+        const path = await import('path');
+        await fs.mkdir(parsed.output_dir, { recursive: true });
+        const outputPath = path.join(parsed.output_dir, `${sdf.url}.json`);
+        await fs.writeFile(outputPath, JSON.stringify(sdf, null, 2), 'utf-8');
+      }
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              {
+                success: true,
+                strategy: 'single-sdf',
+                sdf,
+                summary: {
+                  label: sdf.label,
+                  url: sdf.url,
+                  version: sdf.version,
+                  arch: sdf.arch,
+                  serviceCount: Object.keys(sdf.deployment.services).length,
+                },
+              },
+              null,
+              2
+            ),
+          },
+        ],
+      };
+    }
+
+    // Handle multi-SDF result
+    const multiResult = result as { sdfs: Record<string, ServiceDefinition>; dependencyGraph: Record<string, string[]> };
+    const sdfs = multiResult.sdfs;
+    const dependencyGraph = multiResult.dependencyGraph;
+
+    // Write to files if output_dir provided
+    const outputPaths: Record<string, string> = {};
+    if (parsed.output_dir) {
+      const fs = await import('fs/promises');
+      const path = await import('path');
+      await fs.mkdir(parsed.output_dir, { recursive: true });
+
+      for (const [serviceName, sdf] of Object.entries(sdfs)) {
+        const outputPath = path.join(parsed.output_dir, `${serviceName}.json`);
+        await fs.writeFile(outputPath, JSON.stringify(sdf, null, 2), 'utf-8');
+        outputPaths[serviceName] = outputPath;
+      }
+    }
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(
+            {
+              success: true,
+              strategy: 'multi-sdf',
+              serviceCount: Object.keys(sdfs).length,
+              services: Object.keys(sdfs),
+              dependencyGraph,
+              sdfs,
+              outputPaths: Object.keys(outputPaths).length > 0 ? outputPaths : undefined,
+              summary: Object.entries(sdfs).map(([name, sdf]) => ({
+                name,
+                label: sdf.label,
+                url: sdf.url,
+                version: sdf.version,
+                dependencies: dependencyGraph[name] || [],
+              })),
+            },
+            null,
+            2
+          ),
+        },
+      ],
+    };
+  }
+
+  /**
+   * Handle parse_compose tool
+   */
+  private async handleParseCompose(args: unknown): Promise<{ content: Array<{ type: string; text: string }> }> {
+    const parsed = ParseComposeSchema.parse(args);
+
+    // Parse compose file
+    const parser = new ComposeParser();
+    const composeData = await parser.parseFile(parsed.compose_path);
+
+    // Extract dependency information
+    const dependencyGraph: Record<string, string[]> = {};
+    for (const [serviceName, service] of Object.entries(composeData.services)) {
+      const deps: string[] = [];
+      if (service.depends_on) {
+        if (Array.isArray(service.depends_on)) {
+          deps.push(...service.depends_on);
+        } else {
+          deps.push(...Object.keys(service.depends_on));
+        }
+      }
+      dependencyGraph[serviceName] = deps;
+    }
+
+    // Build service summary
+    const serviceSummary = Object.entries(composeData.services).map(([name, service]) => ({
+      name,
+      image: service.image,
+      build: service.build ? (typeof service.build === 'string' ? service.build : service.build.context) : undefined,
+      ports: service.ports?.length || 0,
+      volumes: service.volumes?.length || 0,
+      environment: service.environment ? Object.keys(service.environment).length : 0,
+      dependencies: dependencyGraph[name],
+      privileged: service.privileged || false,
+    }));
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(
+            {
+              success: true,
+              projectName: composeData.name,
+              version: composeData.version,
+              serviceCount: Object.keys(composeData.services).length,
+              services: serviceSummary,
+              dependencyGraph,
+              networks: composeData.networks ? Object.keys(composeData.networks) : [],
+              volumes: composeData.volumes ? Object.keys(composeData.volumes) : [],
+              hasSecrets: composeData.secrets ? Object.keys(composeData.secrets).length > 0 : false,
+              hasConfigs: composeData.configs ? Object.keys(composeData.configs).length > 0 : false,
+            },
+            null,
+            2
+          ),
+        },
+      ],
+    };
   }
 
   /**
@@ -321,27 +575,48 @@ export class ContainerConverterServer {
     const parsed = ValidateSdfSchema.parse(args);
     const useCli = parsed.use_cli !== false;
 
-    // Load SDF from file or use object
-    let sdf: ServiceDefinition;
+    // Load SDF(s) from file or use object(s)
+    let sdfs: ServiceDefinition[];
     if (typeof parsed.sdf === 'string') {
       const fs = await import('fs/promises');
       const content = await fs.readFile(parsed.sdf, 'utf-8');
-      sdf = JSON.parse(content) as ServiceDefinition;
+      const loaded = JSON.parse(content);
+      sdfs = Array.isArray(loaded) ? loaded : [loaded];
+    } else if (Array.isArray(parsed.sdf)) {
+      sdfs = parsed.sdf as unknown as ServiceDefinition[];
     } else {
-      sdf = parsed.sdf as unknown as ServiceDefinition;
+      sdfs = [parsed.sdf as unknown as ServiceDefinition];
     }
 
     const validator = new SDFValidator();
-    const schemaValidation = validator.validateSchema(sdf);
-    let cliValidation: { valid: boolean; cliAvailable?: boolean; errors: Array<{ field?: string; message: string }> } | undefined;
+    const results = [];
 
-    // CLI validation if requested
-    if (useCli) {
-      cliValidation = await validator.validateWithCli(sdf);
+    // Validate each SDF
+    for (let i = 0; i < sdfs.length; i++) {
+      const sdf = sdfs[i];
+      const sdfLabel = sdf.label || `SDF ${i + 1}`;
+
+      const schemaValidation = validator.validateSchema(sdf);
+      let cliValidation: { valid: boolean; cliAvailable?: boolean; errors: Array<{ field?: string; message: string }> } | undefined;
+
+      // CLI validation if requested
+      if (useCli) {
+        cliValidation = await validator.validateWithCli(sdf);
+      }
+
+      const overallValid = schemaValidation.valid && 
+        (!cliValidation || cliValidation.valid || cliValidation.cliAvailable === false);
+
+      results.push({
+        label: sdfLabel,
+        url: sdf.url,
+        valid: overallValid,
+        schemaValidation,
+        cliValidation,
+      });
     }
 
-    const overallValid = schemaValidation.valid && 
-      (!cliValidation || cliValidation.valid || cliValidation.cliAvailable === false);
+    const allValid = results.every(r => r.valid);
 
     return {
       content: [
@@ -349,9 +624,9 @@ export class ContainerConverterServer {
           type: 'text',
           text: JSON.stringify(
             {
-              valid: overallValid,
-              schemaValidation,
-              cliValidation,
+              valid: allValid,
+              count: sdfs.length,
+              results,
             },
             null,
             2
@@ -366,15 +641,19 @@ export class ContainerConverterServer {
    */
   private async handlePublishSdf(args: unknown): Promise<{ content: Array<{ type: string; text: string }> }> {
     const parsed = PublishSdfSchema.parse(args);
+    const continueOnError = parsed.continue_on_error !== false;
 
-    // Load SDF from file or use object
-    let sdf: ServiceDefinition;
+    // Load SDF(s) from file or use object(s)
+    let sdfs: ServiceDefinition[];
     if (typeof parsed.sdf === 'string') {
       const fs = await import('fs/promises');
       const content = await fs.readFile(parsed.sdf, 'utf-8');
-      sdf = JSON.parse(content) as ServiceDefinition;
+      const loaded = JSON.parse(content);
+      sdfs = Array.isArray(loaded) ? loaded : [loaded];
+    } else if (Array.isArray(parsed.sdf)) {
+      sdfs = parsed.sdf as unknown as ServiceDefinition[];
     } else {
-      sdf = parsed.sdf as unknown as ServiceDefinition;
+      sdfs = [parsed.sdf as unknown as ServiceDefinition];
     }
 
     // Get credentials
@@ -457,19 +736,72 @@ export class ContainerConverterServer {
       };
     }
 
-    // Publish
-    const publishResult = await publishService({
-      credentials,
-      sdf,
-      overwrite: parsed.overwrite,
-      dryRun: parsed.dry_run,
-    });
+    // Publish each SDF
+    const results = [];
+    let successCount = 0;
+    let failureCount = 0;
+
+    for (let i = 0; i < sdfs.length; i++) {
+      const sdf = sdfs[i];
+      const sdfLabel = sdf.label || `SDF ${i + 1}`;
+
+      try {
+        const publishResult = await publishService({
+          credentials,
+          sdf,
+          overwrite: parsed.overwrite,
+          dryRun: parsed.dry_run,
+        });
+
+        results.push({
+          label: sdfLabel,
+          url: sdf.url,
+          version: sdf.version,
+          ...publishResult,
+        });
+
+        if (publishResult.success) {
+          successCount++;
+        } else {
+          failureCount++;
+          if (!continueOnError) {
+            break;
+          }
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        results.push({
+          label: sdfLabel,
+          url: sdf.url,
+          version: sdf.version,
+          success: false,
+          error: message,
+        });
+        failureCount++;
+        
+        if (!continueOnError) {
+          break;
+        }
+      }
+    }
+
+    const allSuccess = failureCount === 0;
 
     return {
       content: [
         {
           type: 'text',
-          text: JSON.stringify(publishResult, null, 2),
+          text: JSON.stringify(
+            {
+              success: allSuccess,
+              count: sdfs.length,
+              successCount,
+              failureCount,
+              results,
+            },
+            null,
+            2
+          ),
         },
       ],
     };

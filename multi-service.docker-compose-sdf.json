@@ -1,0 +1,55 @@
+{
+  "label": "compose-project",
+  "description": "Multi-container service generated from docker-compose.yml",
+  "url": "compose-project",
+  "version": "1.0.0",
+  "arch": "amd64",
+  "sharable": "multiple",
+  "deployment": {
+    "services": {
+      "web": {
+        "image": "nginx:alpine",
+        "ports": [
+          {
+            "HostIP": "0.0.0.0",
+            "HostPort": "8080:80/tcp"
+          },
+          {
+            "HostIP": "0.0.0.0",
+            "HostPort": "8443:443/tcp"
+          }
+        ],
+        "environment": [
+          "NGINX_HOST=localhost",
+          "NGINX_PORT=80"
+        ]
+      },
+      "api": {
+        "image": "node:18-alpine",
+        "ports": [
+          {
+            "HostIP": "0.0.0.0",
+            "HostPort": "3000:3000/tcp"
+          }
+        ],
+        "environment": [
+          "NODE_ENV=production",
+          "PORT=3000"
+        ],
+        "command": [
+          "node",
+          "server.js"
+        ]
+      },
+      "cache": {
+        "image": "redis:7-alpine",
+        "ports": [
+          {
+            "HostIP": "0.0.0.0",
+            "HostPort": "6379:6379/tcp"
+          }
+        ]
+      }
+    }
+  }
+}
