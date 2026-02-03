@@ -1,2 +1,0 @@
-{"id":"590ffb47-93b5-44b4-83f7-5ba6d5279153","ts":"2026-02-03T17:25:52.512Z","path":"/Users/josephapearson/dev/container-converter/docs/docker-compose-support-plan.md","version":"1.0.0","taskID":"f8dad8f6-48ea-4b94-8dd8-ba5666384029"}
-{"id":"a82b8bbb-28a9-44d8-9926-37d680dbf80e","ts":"2026-02-03T17:28:42.979Z","path":"/Users/josephapearson/dev/container-converter/docs/docker-compose-support-plan.md","version":"1.0.0","taskID":"f8dad8f6-48ea-4b94-8dd8-ba5666384029"}
