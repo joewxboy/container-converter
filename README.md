@@ -4,12 +4,13 @@ Convert Dockerfiles to Open Horizon Service Definition Files (SDFs) for edge com
 
 ## Overview
 
-Container Converter is a TypeScript/Node.js tool that automates the conversion of Dockerfiles into Open Horizon Service Definition Files (SDFs). It parses Dockerfile instructions, extracts service metadata, and generates valid SDF JSON files ready for deployment on Open Horizon edge computing platforms.
+Container Converter is a TypeScript/Node.js tool that automates the conversion of Dockerfiles and Docker Compose files into Open Horizon Service Definition Files (SDFs). It parses container definitions, extracts service metadata, and generates valid SDF JSON files ready for deployment on Open Horizon edge computing platforms.
 
 ### Features
 
 - **Dockerfile Parsing**: Extracts base images, exposed ports, environment variables, commands, volumes, and more
-- **Intelligent Inference**: Automatically infers service name, version, and architecture from Dockerfile contents
+- **Docker Compose Support**: Parses docker-compose.yml files (v2.x and Compose Specification) with full support for multi-service applications
+- **Intelligent Inference**: Automatically infers service name, version, and architecture from container definitions
 - **SDF Validation**: Validates generated SDFs against schema and optionally with the Open Horizon CLI
 - **Exchange Publishing**: Publish validated SDFs directly to an Open Horizon Exchange
 - **Multiple Interfaces**:
@@ -87,37 +88,37 @@ container-converter [options] <dockerfile>
 
 ### Arguments
 
-| Argument | Description |
-|----------|-------------|
+| Argument       | Description                       |
+| -------------- | --------------------------------- |
 | `<dockerfile>` | Path to the Dockerfile to convert |
 
 ### Options
 
-| Option | Description |
-|--------|-------------|
-| `-o, --output <path>` | Output path for generated SDF (default: `<dockerfile>-sdf.json`) |
-| `-n, --name <name>` | Service name (inferred from Dockerfile if not provided) |
-| `--svc-version <version>` | Service version (default: 1.0.0) |
-| `-a, --arch <arch>` | Target architecture: amd64, arm64, arm (default: amd64) |
-| `--org <org>` | Organization ID |
-| `--description <desc>` | Service description |
-| `--validate` | Validate generated SDF with Open Horizon CLI |
-| `--publish` | Publish to Open Horizon Exchange after conversion |
-| `--config <path>` | Path to Exchange configuration file (.cfg format) |
-| `--creds <path>` | Path to credentials file (.env format) |
-| `--overwrite` | Overwrite if service already exists in Exchange |
-| `--dry-run` | Validate publish without actually publishing |
-| `-V, --version` | Output version number |
-| `-h, --help` | Display help |
+| Option                    | Description                                                      |
+| ------------------------- | ---------------------------------------------------------------- |
+| `-o, --output <path>`     | Output path for generated SDF (default: `<dockerfile>-sdf.json`) |
+| `-n, --name <name>`       | Service name (inferred from Dockerfile if not provided)          |
+| `--svc-version <version>` | Service version (default: 1.0.0)                                 |
+| `-a, --arch <arch>`       | Target architecture: amd64, arm64, arm (default: amd64)          |
+| `--org <org>`             | Organization ID                                                  |
+| `--description <desc>`    | Service description                                              |
+| `--validate`              | Validate generated SDF with Open Horizon CLI                     |
+| `--publish`               | Publish to Open Horizon Exchange after conversion                |
+| `--config <path>`         | Path to Exchange configuration file (.cfg format)                |
+| `--creds <path>`          | Path to credentials file (.env format)                           |
+| `--overwrite`             | Overwrite if service already exists in Exchange                  |
+| `--dry-run`               | Validate publish without actually publishing                     |
+| `-V, --version`           | Output version number                                            |
+| `-h, --help`              | Display help                                                     |
 
 ### Environment Variables
 
-| Variable | Description |
-|----------|-------------|
-| `HZN_ORG_ID` | Organization ID for Exchange |
-| `HZN_EXCHANGE_USER_AUTH` | User credentials in `user:password` format |
-| `HZN_EXCHANGE_URL` | Exchange URL (e.g., `http://exchange.example.com:3090/v1`) |
-| `DEBUG` | Set to any value to enable stack traces on errors |
+| Variable                 | Description                                                |
+| ------------------------ | ---------------------------------------------------------- |
+| `HZN_ORG_ID`             | Organization ID for Exchange                               |
+| `HZN_EXCHANGE_USER_AUTH` | User credentials in `user:password` format                 |
+| `HZN_EXCHANGE_URL`       | Exchange URL (e.g., `http://exchange.example.com:3090/v1`) |
+| `DEBUG`                  | Set to any value to enable stack traces on errors          |
 
 ## Examples
 
@@ -212,6 +213,168 @@ container-converter Dockerfile \
   --creds ~/mycreds.env
 ```
 
+## Docker Compose Support
+
+Container Converter supports parsing docker-compose.yml files (both legacy v2.x format and the modern Compose Specification). This enables conversion of multi-container applications to Open Horizon SDFs.
+
+### Quick Start
+
+Convert a docker-compose.yml file:
+
+```bash
+container-converter docker-compose.yml -o services.json
+```
+
+### Supported Compose Features
+
+| Feature                  | Support          | Notes                                                        |
+| ------------------------ | ---------------- | ------------------------------------------------------------ |
+| `image`                  | ✅ Full          | Required - images must be pre-built and pushed to a registry |
+| `ports`                  | ✅ Full          | Converted to Open Horizon port mappings                      |
+| `environment`            | ✅ Full          | Supports both array and object formats                       |
+| `volumes` (bind mounts)  | ✅ Full          | Mapped to Open Horizon binds                                 |
+| `command` / `entrypoint` | ✅ Full          | Combined into SDF command array                              |
+| `depends_on`             | ✅ Full          | Mapped to `requiredServices` in multi-SDF mode               |
+| `privileged`             | ✅ Full          | Directly mapped                                              |
+| `tmpfs`                  | ✅ Full          | Mapped to tmpfs mounts                                       |
+| `networks`               | ⚠️ Limited       | Open Horizon manages networking                              |
+| `build`                  | ❌ Not supported | Pre-build images and use `image` field                       |
+| `secrets` / `configs`    | ❌ Not supported | Use environment variables or bind mounts                     |
+
+### Example: Simple Compose File
+
+**Input docker-compose.yml:**
+
+```yaml
+services:
+  web:
+    image: nginx:alpine
+    ports:
+      - '8080:80'
+    environment:
+      - NGINX_HOST=localhost
+      - NGINX_PORT=80
+```
+
+**Command:**
+
+```bash
+container-converter docker-compose.yml
+```
+
+**Generated SDF:**
+
+```json
+{
+  "label": "compose-project",
+  "description": "Multi-container service generated from docker-compose.yml",
+  "url": "compose-project",
+  "version": "1.0.0",
+  "arch": "amd64",
+  "sharable": "multiple",
+  "deployment": {
+    "services": {
+      "web": {
+        "image": "nginx:alpine",
+        "ports": [
+          {
+            "HostIP": "0.0.0.0",
+            "HostPort": "8080:80/tcp"
+          }
+        ],
+        "environment": ["NGINX_HOST=localhost", "NGINX_PORT=80"]
+      }
+    }
+  }
+}
+```
+
+### Environment Variable Substitution
+
+Docker Compose environment variable syntax is fully supported:
+
+```yaml
+services:
+  app:
+    image: ${APP_IMAGE:-myapp:latest}
+    ports:
+      - '${APP_PORT:-3000}:3000'
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+```
+
+Supported formats:
+
+- `${VAR}` - Simple substitution
+- `${VAR:-default}` - Use default if VAR is unset or empty
+- `${VAR-default}` - Use default only if VAR is unset
+
+### Compose Format Support
+
+Both legacy and modern Compose formats are supported:
+
+**Legacy v2.x format:**
+
+```yaml
+version: '2.4'
+services:
+  web:
+    image: nginx
+```
+
+**Modern Compose Specification (recommended):**
+
+```yaml
+services:
+  web:
+    image: nginx
+```
+
+Note: The `version` field is deprecated in the Compose Specification and will trigger a warning.
+
+### Real-World Example: WordPress
+
+**Input docker-compose.yml:**
+
+```yaml
+services:
+  wordpress:
+    image: wordpress:latest
+    ports:
+      - '8080:80'
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpress
+      WORDPRESS_DB_NAME: wordpress
+    depends_on:
+      - db
+
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wordpress
+      MYSQL_PASSWORD: wordpress
+      MYSQL_RANDOM_ROOT_PASSWORD: '1'
+    volumes:
+      - db-data:/var/lib/mysql
+
+volumes:
+  db-data:
+```
+
+The generated SDF will include both services with proper dependency mapping via `requiredServices`.
+
+### Migration from Docker Compose
+
+When migrating from docker-compose to Open Horizon:
+
+1. **Pre-build images**: Remove `build` sections and ensure all images are pushed to accessible registries
+2. **Replace named volumes**: Use bind mounts (`-v /host/path:/container/path`) instead of named volumes
+3. **Update networking**: Open Horizon handles service-to-service communication automatically
+4. **Test edge deployment**: Validate on edge devices before production
+
 ## MCP Server
 
 Container Converter includes an MCP (Model Context Protocol) server that exposes its functionality as tools for AI assistants.
@@ -228,44 +391,44 @@ container-converter-mcp
 
 ### Available MCP Tools
 
-| Tool | Description |
-|------|-------------|
-| `convert_dockerfile` | Convert a Dockerfile to an SDF |
-| `validate_sdf` | Validate an SDF (schema and/or CLI) |
-| `publish_sdf` | Publish SDF to Open Horizon Exchange |
-| `check_hzn_cli` | Check if hzn CLI is available and get version |
-| `list_exchange_services` | List services in the Exchange |
+| Tool                     | Description                                   |
+| ------------------------ | --------------------------------------------- |
+| `convert_dockerfile`     | Convert a Dockerfile to an SDF                |
+| `validate_sdf`           | Validate an SDF (schema and/or CLI)           |
+| `publish_sdf`            | Publish SDF to Open Horizon Exchange          |
+| `check_hzn_cli`          | Check if hzn CLI is available and get version |
+| `list_exchange_services` | List services in the Exchange                 |
 
 ### Tool Parameters
 
 #### convert_dockerfile
 
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `dockerfile_path` | Yes | Path to Dockerfile |
-| `name` | No | Service name |
-| `version` | No | Service version (default: 1.0.0) |
-| `arch` | No | Target architecture (default: amd64) |
-| `org` | No | Organization ID |
-| `description` | No | Service description |
-| `output_path` | No | Path to save generated SDF |
+| Parameter         | Required | Description                          |
+| ----------------- | -------- | ------------------------------------ |
+| `dockerfile_path` | Yes      | Path to Dockerfile                   |
+| `name`            | No       | Service name                         |
+| `version`         | No       | Service version (default: 1.0.0)     |
+| `arch`            | No       | Target architecture (default: amd64) |
+| `org`             | No       | Organization ID                      |
+| `description`     | No       | Service description                  |
+| `output_path`     | No       | Path to save generated SDF           |
 
 #### validate_sdf
 
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `sdf` | Yes | File path or SDF object |
-| `use_cli` | No | Also validate with hzn CLI (default: true) |
+| Parameter | Required | Description                                |
+| --------- | -------- | ------------------------------------------ |
+| `sdf`     | Yes      | File path or SDF object                    |
+| `use_cli` | No       | Also validate with hzn CLI (default: true) |
 
 #### publish_sdf
 
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `sdf` | Yes | File path or SDF object |
-| `config_path` | No | Path to Exchange config file |
-| `creds_path` | No | Path to credentials file |
-| `overwrite` | No | Overwrite if service exists |
-| `dry_run` | No | Validate without publishing |
+| Parameter     | Required | Description                  |
+| ------------- | -------- | ---------------------------- |
+| `sdf`         | Yes      | File path or SDF object      |
+| `config_path` | No       | Path to Exchange config file |
+| `creds_path`  | No       | Path to credentials file     |
+| `overwrite`   | No       | Overwrite if service exists  |
+| `dry_run`     | No       | Validate without publishing  |
 
 ### MCP Configuration for AI Assistants
 
@@ -298,17 +461,17 @@ container-converter-tui
 
 ### TUI Commands
 
-| Command | Description |
-|---------|-------------|
+| Command                | Description                 |
+| ---------------------- | --------------------------- |
 | `convert <dockerfile>` | Convert a Dockerfile to SDF |
-| `validate <sdf-file>` | Validate an SDF file |
-| `publish <sdf-file>` | Publish SDF to Exchange |
-| `check cli` | Check hzn CLI availability |
-| `list services` | List Exchange services |
-| `preview` | Preview current SDF |
-| `save <path>` | Save current SDF to file |
-| `help` | Show available commands |
-| `quit` | Exit the application |
+| `validate <sdf-file>`  | Validate an SDF file        |
+| `publish <sdf-file>`   | Publish SDF to Exchange     |
+| `check cli`            | Check hzn CLI availability  |
+| `list services`        | List Exchange services      |
+| `preview`              | Preview current SDF         |
+| `save <path>`          | Save current SDF to file    |
+| `help`                 | Show available commands     |
+| `quit`                 | Exit the application        |
 
 ### TUI Features
 
@@ -396,10 +559,7 @@ interface DockerfileData {
 
 ```typescript
 class SDFGenerator {
-  generate(
-    dockerfileData: DockerfileData,
-    metadata?: Partial<ServiceMetadata>
-  ): ServiceDefinition;
+  generate(dockerfileData: DockerfileData, metadata?: Partial<ServiceMetadata>): ServiceDefinition;
 }
 
 interface ServiceMetadata {
@@ -476,6 +636,7 @@ curl -s $HZN_EXCHANGE_URL/admin/status
 #### "Schema validation failed"
 
 The generated SDF is missing required fields. Check:
+
 - The Dockerfile has a valid `FROM` instruction
 - Required fields are provided via CLI options if not inferable
 
@@ -499,18 +660,18 @@ npm install
 
 ### Scripts
 
-| Script | Description |
-|--------|-------------|
-| `npm run dev` | Start development server with hot reload |
-| `npm run build` | Build production bundle |
-| `npm test` | Run all tests |
-| `npm run test:watch` | Run tests in watch mode |
-| `npm run test:coverage` | Run tests with coverage report |
-| `npm run lint` | Run ESLint |
-| `npm run lint:fix` | Auto-fix ESLint issues |
-| `npm run format` | Format code with Prettier |
-| `npm run typecheck` | Run TypeScript type checking |
-| `npm run validate` | Run full validation (lint + typecheck + test) |
+| Script                  | Description                                   |
+| ----------------------- | --------------------------------------------- |
+| `npm run dev`           | Start development server with hot reload      |
+| `npm run build`         | Build production bundle                       |
+| `npm test`              | Run all tests                                 |
+| `npm run test:watch`    | Run tests in watch mode                       |
+| `npm run test:coverage` | Run tests with coverage report                |
+| `npm run lint`          | Run ESLint                                    |
+| `npm run lint:fix`      | Auto-fix ESLint issues                        |
+| `npm run format`        | Format code with Prettier                     |
+| `npm run typecheck`     | Run TypeScript type checking                  |
+| `npm run validate`      | Run full validation (lint + typecheck + test) |
 
 ### Project Structure
 

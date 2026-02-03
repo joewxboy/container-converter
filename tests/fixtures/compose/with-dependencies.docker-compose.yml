@@ -1,0 +1,41 @@
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: appdb
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    ports:
+      - '5432:5432'
+
+  cache:
+    image: redis:7-alpine
+    ports:
+      - '6379:6379'
+
+  api:
+    image: myapp/api:latest
+    ports:
+      - '3000:3000'
+    environment:
+      DATABASE_URL: postgresql://app:secret@db:5432/appdb
+      REDIS_URL: redis://cache:6379
+      NODE_ENV: production
+    depends_on:
+      - db
+      - cache
+    command: ['node', 'dist/server.js']
+
+  web:
+    image: myapp/frontend:latest
+    ports:
+      - '8080:80'
+    environment:
+      API_URL: http://api:3000
+    depends_on:
+      - api
+
+volumes:
+  db-data:
